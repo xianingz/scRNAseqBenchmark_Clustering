@@ -5,10 +5,7 @@ suppressPackageStartupMessages({
 })
 
 apply_Seurat <- function(sce, params, resolution) {
-  (seed <- round(1e6*runif(1)))
-  tryCatch({
-    dat <- counts(sce)
-    st <- system.time({
+      (seed <- round(1e6*runif(1)))
       data <- CreateSeuratObject(raw.data = dat, min.cells = params$min.cells,
                                  min.genes = params$min.genes, project = "scRNAseq", 
                                  display.progress = FALSE) 
@@ -22,16 +19,5 @@ apply_Seurat <- function(sce, params, resolution) {
                            resolution = resolution, print.output = 0, 
                            random.seed = seed)
       cluster <- data@ident
-    })
-    
-    st <- c(user.self = st[["user.self"]], sys.self = st[["sys.self"]], 
-            user.child = st[["user.child"]], sys.child = st[["sys.child"]],
-            elapsed = st[["elapsed"]])
-    list(st = st, cluster = cluster, est_k = NA)
-  }, error = function(e) {
-    list(st = c(user.self = NA, sys.self = NA, user.child = NA, sys.child = NA,
-                elapsed = NA), 
-         cluster = structure(rep(NA, ncol(sce)), names = colnames(sce)),
-         est_k = NA)
-  })
+      cluster
 }
