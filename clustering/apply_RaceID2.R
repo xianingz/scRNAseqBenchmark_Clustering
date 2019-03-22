@@ -1,6 +1,6 @@
 ## Apply RaceID2
 
-source("Rscripts/clustering/RaceID2_StemID_class.R")
+source("clustering/RaceID2_StemID_class.R")
 
 apply_RaceID2 <- function(sce, params, k) {
   (seed <- round(1e6*runif(1)))

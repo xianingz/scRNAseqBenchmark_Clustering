@@ -6,6 +6,7 @@ suppressPackageStartupMessages({
 
 apply_Seurat <- function(sce, params, resolution) {
       (seed <- round(1e6*runif(1)))
+      dat <- counts(sce)
       data <- CreateSeuratObject(raw.data = dat, min.cells = params$min.cells,
                                  min.genes = params$min.genes, project = "scRNAseq", 
                                  display.progress = FALSE) 

@@ -6,6 +6,7 @@ suppressPackageStartupMessages({
 })
 
 apply_pcaReduce <- function(sce, params, k) {
+  detach("package:amap", unload=TRUE)
   dat <- logcounts(sce)
   pca <- PCAreduce(t(dat), nbt = params$nbt, q = params$q, method = "S")
   part <- lapply(pca, function(x) {

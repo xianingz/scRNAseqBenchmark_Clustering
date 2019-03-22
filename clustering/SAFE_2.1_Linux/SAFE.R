@@ -216,7 +216,7 @@ SAFE <- function(cluster_results, k_min = 2, k_max = NULL, MCLA = TRUE, HGPA = F
     
     command <- NULL
     if (last_char < 2){
-      command <- paste('./gpmetis -seed=', SEED, ' ', dataname, ' ', k, sep = '')
+      command <- paste('/home/xianingz/storage/Github/scRNAseqBenchmark_Clustering/clustering/SAFE_2.1_Linux/gpmetis -seed=', SEED, ' ', dataname, ' ', k, sep = '')
       employed_method <- "gpmetis"
       print (paste('cluster ensembles: ', command, sep = ''))
     } else {

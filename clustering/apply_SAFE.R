@@ -1,7 +1,7 @@
 ## Apply SAFE clustering
 
-source("Rscripts/clustering/SAFE_2.1_Linux/individual_clustering_modified.R")
-source("Rscripts/clustering/SAFE_2.1_Linux/SAFE_modified.R")
+source("clustering/SAFE_2.1_Linux/individual_clustering_modified.R")
+source("clustering/SAFE_2.1_Linux/SAFE_modified.R")
 
 apply_SAFE <- function(sce, params, k) {
     dat <- counts(sce)
