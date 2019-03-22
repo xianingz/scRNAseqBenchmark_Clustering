@@ -28,7 +28,7 @@ suppressPackageStartupMessages({
 dataset = params$dataset
 simuname <- paste0("/home/xianingz/storage/Github/scRNAseqBenchmark_Clustering/Data/Simulations/",dataset)
 sce <- readRDS(simuname)
-sce <- normalise(sce, exprs_values = "counts", return_log = TRUE) ## generates logcounts(sce)
+sce <- normalize(sce, exprs_values = "counts", return_log = TRUE) ## generates logcounts(sce)
 ```
 
 ## Exclude features that are not expressed
@@ -76,7 +76,7 @@ colData(sce)$feature.drop <- isOutlier(sce$total_features_by_counts, nmads = 3, 
 ggplot(as.data.frame(colData(sce)), aes(x = total_features_by_counts)) + 
   geom_histogram(bins = 20, fill = "grey80") + xlab("Number of detected features") + 
   ylab("Number of cells") + 
-  geom_vline(xintercept = min(sce$total_features[!sce$feature.drop]), 
+  geom_vline(xintercept = min(sce$total_features_by_counts[!sce$feature.drop]), 
              color = "red", linetype = "dashed") + 
   theme_bw()
 ```
@@ -90,7 +90,7 @@ dim(sce)
 ## Quality control using highest expressed genes
 
 ```{r qc-filt}
-plotQC(sce, type = "highest-expression", n = 50)
+plotHighestExprs(sce, n = 50)
 ```
 
 ## Data normalization
@@ -101,8 +101,8 @@ summary(sizeFactors(sce))
 ```
 
 ```{r normalization}
-sce <- normalise(sce, exprs_values = "counts", return_log = TRUE)
-sce <- normalise(sce, exprs_values = "counts", return_log = FALSE)
+sce <- normalize(sce, exprs_values = "counts", return_log = TRUE)
+sce <- normalize(sce, exprs_values = "counts", return_log = FALSE)
 ```
 
 ## Plot the proportion of explained variances
@@ -125,7 +125,7 @@ plotTSNE(sce, colour_by = "total_features_by_counts", size_by = "total_counts")
 ## Show cluster blocks using Heatmap
 
 ```{r heatmap}
-sce.cor <- cor(normcounts(sce))
+sce.cor <- cor(normcounts(sce), method = "spearman")
 h=Heatmap(sce.cor[order(sce$Group),order(sce$Group)],cluster_rows = FALSE,cluster_columns = FALSE,show_row_names = FALSE,show_column_names = FALSE, name = "Correlation")
 draw(h)
 ```
