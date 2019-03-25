@@ -12,18 +12,18 @@ groupmatrix <- cbind(groupequal, groupunequal1, groupunequal2)
 
 #distequal <- c(0.0075, 0.01, 0.0125, 0.015)
 distequal <- c(0.01, 0.015, 0.02, 0.025)
-distunequal1 <- c(0.005,0.005,0.01,0.015) # * (1,2.5,0.5)
-distunequal2 <- c(0.015,0.01,0.005,0.005) # * (1,2.5,0.5)
+distunequal1 <- c(0.01,0.01,0.015,0.015) # * (1,2.5,0.5)
+distunequal2 <- c(0.015,0.015,0.01,0.01) # * (1,2.5,0.5)
 
 distmatrix <- matrix(0,nrow=4,ncol=12)
 for(i in c(1:4)){
   distmatrix[,i] = rep(distequal[i],4)
 }
 for(i in (1:4)){
-  distmatrix[,i+4] = distunequal1 * (i+1)/2
+  distmatrix[,i+4] = distunequal1 * (i/4+3/4)
 }
 for(i in (1:4)){
-  distmatrix[,i+8] = distunequal2 * (i+1)/2
+  distmatrix[,i+8] = distunequal2 * (i/4+3/4)
 }
 
 #define code
@@ -38,7 +38,9 @@ library(scater)
 
 
 ##3/22/2019 Only for equal cluster distance 4*2*4*4*4 = 512
-for(i in c(1:4)){ ## cluster distance, 4 degrees of difficulty
+#for(i in c(1:4)){ ## cluster distance, 4 degrees of difficulty
+##3/23/2019 for unequal distance 4*2*4*4*4 = 512
+for(i in c(5:8)){ ## cluster distance, unequal, 4 degrees of difficulty
   for(j in c(1:2)){  ## cluster size, only one unequal is included beacuase it symmetric
     for(m in c(1:4)){  ## library size
       for(n in c(1:4)){  ## library scale

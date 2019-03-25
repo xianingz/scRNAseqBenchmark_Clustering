@@ -1,4 +1,4 @@
-for filename in ./Data/Simulations/*; do
+for filename in ./Data/Simulations/*.rds; do
   name=${filename##*/};
   base=${name%.rds}
   echo ${base}_pre.html;

@@ -27,7 +27,6 @@ source("clustering/apply_SIMLR.R")
 source("clustering/apply_Seurat.R")
 source("clustering/apply_SC3svm.R")
 source("clustering/apply_SC3.R")
-source("clustering/apply_SAFE.R")
 
 ##test filter function
 sce <- readRDS(paste0("/home/xianingz/storage/Github/scRNAseqBenchmark_Clustering/Data/data_pre/",args[1],".rds"))
@@ -105,11 +104,6 @@ b <- b %>%
                       method_label = "RtsneKmeans",
                       func = apply_RtsneKmeans,
                       params = rlang::quos(params = list(perplexity = 30, dims = 3, initial_dims = 50),
-                                           k = 4)) %>%
-  addMethodToWorkflow(step="Clustering",
-                      method_label = "SAFE",
-                      func = apply_SAFE,
-                      params = rlang::quos(params = list(),
                                            k = 4)) %>%
   addMethodToWorkflow(step="Clustering",
                       method_label = "SC3svm",
@@ -201,12 +195,6 @@ b <- b %>%
                                               RtsneKmeans_3 = 3,
                                               RtsneKmeans_5 = 5,
                                               RtsneKmeans_6 = 6)) %>%
-  expandMethodInWorkflow(step = "Clustering", label = "SAFE", 
-                         onlyone = "k",
-                         params = rlang::quos(SAFE_2 = 2,
-                                              SAFE_3 = 3,
-                                              SAFE_5 = 5,
-                                              SAFE_6 = 6)) %>%
   expandMethodInWorkflow(step = "Clustering", label = "SC3svm", 
                          onlyone = "k",
                          params = rlang::quos(SC3svm_2 = 2,
