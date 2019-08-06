@@ -29,7 +29,7 @@ source("clustering/apply_SC3svm.R")
 source("clustering/apply_SC3.R")
 
 ##test filter function
-sce <- readRDS(paste0("/home/xianingz/storage/Github/scRNAseqBenchmark_Clustering/Data/data_pre/",args[1],".rds"))
+sce <- readRDS(paste0("/home/xianingz/storage/Github/scRNAseqBenchmark_Clustering/Data/data_pre_do/",args[1],".rds"))
 b <- BenchDesign(data = list(tdata = sce))
 b <- initWorkflow(b, steps=c("Genefilter","Clustering"))
 b <- b %>% 

@@ -136,7 +136,7 @@ draw(h)
 ```{r save-data}
 dim(sce)
 table(sce$Group)
-saveRDS(sce, file = paste0("/home/xianingz/storage/Github/scRNAseqBenchmark_Clustering/Data/data_pre/",dataset))
+saveRDS(sce, file = paste0("/home/xianingz/storage/Github/scRNAseqBenchmark_Clustering/Data/data_pre_do/",dataset))
 ```
 
 ## Session info

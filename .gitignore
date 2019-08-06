@@ -1,2 +1,11 @@
+logs/*
 Data/*
 results/*
+evaluation/*rds
+evaluation/archive/*
+evaluation/logs/*
+evaluation/pbs/*
+other_scripts/*
+pbs/*
+pbs_scripts/*
+rfiles/*

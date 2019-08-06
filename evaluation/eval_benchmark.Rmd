@@ -1,0 +1,1872 @@
+## Single cell clustering algorithm benchmarking using Simulated dataset 
+
+### Please read https://umich.box.com/s/ut60qm1sklp69ai778bpi15wf7wwuint for guidelines to this script
+Data: https://umich.box.com/s/wlnkizxbvglqse1kck91jemrmywdhjxf
+
+## 1. Read in the results and truth
+```{r eval=FALSE}
+eda1 <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/res.EDA1.rds")
+eda2 <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/res.EDA2.rds")
+eda3 <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/res.EDA3.rds")
+eda4 <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/res.EDA4.rds")
+
+udb1 <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/res.UDB1.rds")
+udb2 <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/res.UDB2.rds")
+udb3 <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/res.UDB3.rds")
+udb4 <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/res.UDB4.rds")
+
+eda1.tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/tru.EDA1.rds")
+eda2.tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/tru.EDA2.rds")
+eda3.tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/tru.EDA3.rds")
+eda4.tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/tru.EDA4.rds")
+
+udb1.tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/tru.UDB1.rds")
+udb2.tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/tru.UDB2.rds")
+udb3.tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/tru.UDB3.rds")
+udb4.tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/tru.UDB4.rds")
+```
+
+Merge the data
+```{r eval=FALSE}
+res <- c(eda1,eda2,eda3,eda4,udb1,udb2,udb3,udb4)
+tru <- c(eda1.tru, eda2.tru, eda3.tru, eda4.tru, udb1.tru, udb2.tru, udb3.tru, udb4.tru)
+```
+
+```{r eval=FALSE}
+saveRDS(res,file = "~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/results.rds")
+saveRDS(tru,file = "~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/truth.rds")
+```
+
+```{r}
+res <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/results.rds")
+tru <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/truth.rds")
+```
+
+
+
+##. 2. Calculate clustering comparison metrics.
+Calculate Adjusted rand index
+```{r}
+library(mclust)
+```
+
+```{r eval=FALSE}
+adj.mat <- matrix(0, nrow = 1024, ncol = 225)
+dats <- names(res)
+for(i in c(1:length(dats))){
+  name = dats[i]
+  res.mat <- res[[name]]
+  tru.vec <- tru[[name]]
+  adj.mat[i,] = apply(res.mat,2,function(x) adjustedRandIndex(x, tru.vec))
+}
+colnames(adj.mat) <- colnames(res[[1]])
+rownames(adj.mat) <- dats
+```
+
+```{r}
+fmeasure <- function(clu1,clu2,label=NULL){
+  #Label should be from clu1, exchange clu1 and clu2 when necessary
+  if(sum(!is.na(clu1))==0 || sum(!is.na(clu2))==0){
+    return(NA)
+  }
+  contab <- as.matrix(table(factor(clu1),factor(clu2)))
+  if(is.null(label)){
+    clus <- 1:length(unique(clu1))
+  }else{
+    clus <- c(label)
+  }
+  totf = 0;
+  for(j in clus){
+    maxf = 0;
+    for(i in 1:length(unique(clu2))){
+      pij = contab[j,i]/sum(contab[,i])
+      rij = contab[j,i]/sum(contab[j,])
+      fmea = 2*rij*pij/(rij+pij)
+      if(!is.na(fmea) & fmea > maxf){
+        maxf = fmea
+      }
+    }
+    totf = totf+maxf*sum(contab[j,])
+  }
+  totf = totf/sum(contab[clus,])
+  return(totf)
+}
+```
+
+```{r eval=FALSE}
+fm.mat <- matrix(0, nrow = 1024, ncol = 225)
+dats <- names(res)
+for(i in c(1:length(dats))){
+  name = dats[i]
+  res.mat <- res[[name]]
+  tru.vec <- tru[[name]]
+  fm.mat[i,] = apply(res.mat,2,function(x) fmeasure(x, tru.vec))
+}
+colnames(fm.mat) <- colnames(res[[1]])
+rownames(fm.mat) <- dats
+```
+
+```{r}
+dats <- names(res)
+```
+
+```{r}
+saveRDS(adj.mat, file = "~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/adj.mat.rds")
+saveRDS(fm.mat, file = "~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/fm.mat.rds")
+```
+
+
+### Read in pre-calculated data.
+```{r}
+adj.mat <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/adj.mat.rds")
+fm.mat <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/fm.mat.rds")
+```
+
+##. 3. Overall analysis
+Extract Dataset features (Equl/Unequal distance, Equal/Unequal Size, etc)
+```{r}
+cdist <- unlist(lapply(dats, function(x) strsplit(x,"_")[[1]][1]))
+distype <- unlist(lapply(cdist, function(x) substr(x,1,3)))
+csize <- unlist(lapply(dats, function(x) strsplit(x,"_")[[1]][2]))
+libsize <- unlist(lapply(dats, function(x) strsplit(x,"_")[[1]][3]))
+libscale <- unlist(lapply(dats, function(x) strsplit(x,"_")[[1]][4]))
+dropout <- unlist(lapply(dats, function(x) strsplit(x,"_")[[1]][5]))
+dat.features <- cbind(cdist,csize,libsize,libscale,dropout)
+colnames(dat.features) <- c("Cluster_Distance", "Cluster_Size", "Library_Size", "Library_Scale", "Dropout")
+rownames(dat.features) <- dats
+```
+
+PCA
+remove all zero columns and replace NA with 0
+```{r}
+adj.mat.fil <- adj.mat[,apply(adj.mat,2,function(x) sum(is.na(x))!=1024)]
+adj.mat.fil[is.na(adj.mat.fil)] = 0
+adj.pca <- prcomp(adj.mat.fil)
+adj.tsne <- Rtsne::Rtsne(adj.mat.fil)
+adj.umap <- umap::umap(adj.mat.fil)
+```
+
+#### plot PCA and colored by each factor
+```{r fig.height=6,fig.width=9}
+par(mfrow=c(2,3))
+plot(adj.pca$x[,c(1:2)], col=as.factor(cdist), pch=16, main="Cluster Distance")
+plot(adj.pca$x[,c(1:2)], col=as.factor(distype), pch=16, main="Equal/Unequal Distance")
+plot(adj.pca$x[,c(1:2)], col=as.factor(csize), pch=16, main="Equal/Unequal Cluster Size")
+plot(adj.pca$x[,c(1:2)], col=as.factor(libsize), pch=16, main="Library Size")
+plot(adj.pca$x[,c(1:2)], col=as.factor(libscale), pch=16, main="Library Scale")
+plot(adj.pca$x[,c(1:2)], col=as.factor(dropout), pch=16, main="Dropout rate")
+
+
+plot(adj.pca$x[,c(1:2)], col=c("#9bc0ee","#70a5e7","#4489df","#236fce","#9bc0ee","#70a5e7","#4489df","#236fce")[as.factor(cdist)], pch=16, main="Cluster Distance")
+plot(adj.pca$x[,c(1:2)], col=c("#c6c4c4","#7a7676")[as.factor(distype)], pch=16, main="Equal/Unequal Distance")
+plot(adj.pca$x[,c(1:2)], col=c("#c0ee9b","#6fce23")[as.factor(csize)], pch=16, main="Equal/Unequal Cluster Size")
+plot(adj.pca$x[,c(1:2)], col=c("#eec99b", "#e7b270","#df9a44","#ce8223")[as.factor(libsize)], pch=16, main="Library Size")
+plot(adj.pca$x[,c(1:2)], col=c("#c99bee","#b270e7","#9a44df","#8223ce")[as.factor(libscale)], pch=16, main="Library Scale")
+plot(adj.pca$x[,c(1:2)], col=c("#eea09b","#e77770","#df4d44","#ce2d23")[as.factor(dropout)], pch=16, main="Dropout rate")
+```
+
+#### Plot t-SNE and colored by each feature.
+```{r fig.height=6,fig.width=9}
+par(mfrow=c(2,3))
+plot(adj.tsne$Y[,c(1:2)], col=c("#9bc0ee","#70a5e7","#4489df","#236fce","#9bc0ee","#70a5e7","#4489df","#236fce")[as.factor(cdist)], pch=16, main="Cluster Distance")
+plot(adj.tsne$Y[,c(1:2)], col=c("#c6c4c4","#7a7676")[as.factor(distype)], pch=16, main="Equal/Unequal cluster distance")
+plot(adj.tsne$Y[,c(1:2)], col=c("#c0ee9b","#6fce23")[as.factor(csize)], pch=16, main="Equal/Unequal cluster size")
+plot(adj.tsne$Y[,c(1:2)], col=c("#eec99b", "#e7b270","#df9a44","#ce8223")[as.factor(libsize)], pch=16, main="Library Size")
+plot(adj.tsne$Y[,c(1:2)], col=c("#c99bee","#b270e7","#9a44df","#8223ce")[as.factor(libscale)], pch=16, main="Library Scale")
+plot(adj.tsne$Y[,c(1:2)], col=c("#eea09b","#e77770","#df4d44","#ce2d23")[as.factor(dropout)], pch=16, main="Dropout rate")
+```
+
+#### Plot UMAP and colored by each factor
+```{r fig.height=6,fig.width=9}
+par(mfrow=c(2,3))
+plot(adj.umap$layout[,c(1:2)], col=c("#9bc0ee","#70a5e7","#4489df","#236fce","#9bc0ee","#70a5e7","#4489df","#236fce")[as.factor(cdist)], pch=16, main="Cluster distance")
+plot(adj.umap$layout[,c(1:2)], col=c("#c6c4c4","#7a7676")[as.factor(distype)], pch=16,main="Equal/Unequal Cluster Distance")
+plot(adj.umap$layout[,c(1:2)], col=c("#c0ee9b","#6fce23")[as.factor(csize)], pch=16, main="Equal/Unequal Cluster Size")
+plot(adj.umap$layout[,c(1:2)], col=c("#eec99b", "#e7b270","#df9a44","#ce8223")[as.factor(libsize)], pch=16, main="Library Size")
+plot(adj.umap$layout[,c(1:2)], col=c("#c99bee","#b270e7","#9a44df","#8223ce")[as.factor(libscale)], pch=16, main="Library Scale")
+plot(adj.umap$layout[,c(1:2)], col=c("#eea09b","#e77770","#df4d44","#ce2d23")[as.factor(dropout)], pch=16, main="Dropout")
+```
+
+###Do PCA, UMAP and TSNE for f-measure  result
+```{r}
+fm.mat.fil <- fm.mat[,apply(fm.mat,2,function(x) sum(is.na(x))!=1024)]
+fm.mat.fil[is.na(fm.mat.fil)] = 0
+fm.pca <- prcomp(fm.mat.fil)
+fm.tsne <- Rtsne::Rtsne(fm.mat.fil)
+fm.umap <- umap::umap(fm.mat.fil)
+```
+
+```{r fig.height=6,fig.width=9}
+par(mfrow=c(2,3))
+plot(fm.pca$x[,c(1:2)], col=c("#9bc0ee","#70a5e7","#4489df","#236fce","#9bc0ee","#70a5e7","#4489df","#236fce")[as.factor(cdist)], pch=16, main="Cluster distance")
+plot(fm.pca$x[,c(1:2)], col=c("#c6c4c4","#7a7676")[as.factor(distype)], pch=16, main="Equal/Unequal Cluster Distance")
+plot(fm.pca$x[,c(1:2)], col=c("#c0ee9b","#6fce23")[as.factor(csize)], pch=16, main="Equal/Unequal Cluster Size")
+plot(fm.pca$x[,c(1:2)], col=c("#eec99b", "#e7b270","#df9a44","#ce8223")[as.factor(libsize)], pch=16, main="Library Size")
+plot(fm.pca$x[,c(1:2)], col=c("#c99bee","#b270e7","#9a44df","#8223ce")[as.factor(libscale)], pch=16, main="Library Scale")
+plot(fm.pca$x[,c(1:2)], col=c("#eea09b","#e77770","#df4d44","#ce2d23")[as.factor(dropout)], pch=16, main="Dropout")
+```
+
+```{r fig.width=9, fig.height=6}
+par(mfrow=c(2,3))
+plot(fm.tsne$Y[,c(1:2)], col=c("#9bc0ee","#70a5e7","#4489df","#236fce","#9bc0ee","#70a5e7","#4489df","#236fce")[as.factor(cdist)], pch=16, main="Cluster Distance")
+plot(fm.tsne$Y[,c(1:2)], col=c("#c6c4c4","#7a7676")[as.factor(distype)], pch=16, main="Equal/Unequal Cluster Distance")
+plot(fm.tsne$Y[,c(1:2)], col=c("#c0ee9b","#6fce23")[as.factor(csize)], pch=16, main="Equal/Unequal Cluster Size")
+plot(fm.tsne$Y[,c(1:2)], col=c("#eec99b", "#e7b270","#df9a44","#ce8223")[as.factor(libsize)], pch=16, main="Library Size")
+plot(fm.tsne$Y[,c(1:2)], col=c("#c99bee","#b270e7","#9a44df","#8223ce")[as.factor(libscale)], pch=16, main="Library Scale")
+plot(fm.tsne$Y[,c(1:2)], col=c("#eea09b","#e77770","#df4d44","#ce2d23")[as.factor(dropout)], pch=16, main="Dropout")
+```
+
+```{r fig.width=9, fig.height=6}
+par(mfrow=c(2,3))
+plot(fm.umap$layout, col=c("#9bc0ee","#70a5e7","#4489df","#236fce","#9bc0ee","#70a5e7","#4489df","#236fce")[as.factor(cdist)], pch=16, main="Cluster Distance")
+plot(fm.umap$layout, col=c("#c6c4c4","#7a7676")[as.factor(distype)], pch=16, main="Equal/Unequal Cluster Distance")
+plot(fm.umap$layout, col=c("#c0ee9b","#6fce23")[as.factor(csize)], pch=16, main="Equal/Unequal Cluster Size")
+plot(fm.umap$layout, col=c("#eec99b", "#e7b270","#df9a44","#ce8223")[as.factor(libsize)], pch=16, main="Library Size")
+plot(fm.umap$layout, col=c("#c99bee","#b270e7","#9a44df","#8223ce")[as.factor(libscale)], pch=16, main="Library Scale")
+plot(fm.umap$layout, col=c("#eea09b","#e77770","#df4d44","#ce2d23")[as.factor(dropout)], pch=16, main="Dropout")
+```
+
+```{r}
+library(ComplexHeatmap)
+library(circlize)
+```
+
+#### Extract features for each pipelien (gene seletion method, clustering algorithm, k)
+```{r}
+meth.gene <-unlist(lapply(colnames(adj.mat.fil), function(x) strsplit(x,"_")[[1]][1]))
+meth.algo <-unlist(lapply(colnames(adj.mat.fil), function(x) strsplit(x,"_")[[1]][2]))
+meth.k <-unlist(lapply(colnames(adj.mat.fil), function(x) strsplit(x,"_")[[1]][3]))
+meth.k[is.na(meth.k)]=4
+```
+
+
+###. All data + ARI
+An overall oview of the 1024*225 matrix using ARI. 
+1. HDG performs worse than the other two in our settings. (May need more tweaks to make it work.)
+2. library size tend to be large on the left side.
+```{r fig.width=12, fig.height=9}
+ha = HeatmapAnnotation(df = data.frame(Distance_Type=distype, dat.features), 
+                       col = list(Distance_Type=c("EDA"="#c6c4c4","UDB"="#7a7676"),
+                              Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce","UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+hm = rowAnnotation(df = data.frame(Gene_Selection=meth.gene, K=meth.k),
+                       col = list(Gene_Selection=c("HVG"="#23ce82", "HEG"="#5ae3a6", "HDG"="#9beec9"),
+                                  K=c("2"="#236fce","3"="#2e7cdc","4"="#5a97e3","5"="#70a5e7","6"="#9bc0ee")))
+
+Heatmap(t(adj.mat.fil), name="ARI",cluster_rows = TRUE, cluster_columns = TRUE, top_annotation = ha,left_annotation = hm, show_row_names = FALSE, show_column_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+```{r}
+orderby <- function(x, by){
+   return(x[order(unlist(lapply(x, function(y) strsplit(y,"_")[[1]][by])))])
+}
+```
+
+###. All data + f-measure
+overview of 1024*225 matrix using f-measure.
+Similar results.
+```{r fig.width=12, fig.height=9}
+ha = HeatmapAnnotation(df = data.frame(Distance_Type=distype, dat.features), 
+                       col = list(Distance_Type=c("EDA"="#c6c4c4","UDB"="#7a7676"),
+                              Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce","UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+hm = rowAnnotation(df = data.frame(Gene_Selection=meth.gene, K=meth.k),
+                       col = list(Gene_Selection=c("HVG"="#23ce82", "HEG"="#5ae3a6", "HDG"="#9beec9"),
+                                  K=c("2"="#236fce","3"="#2e7cdc","4"="#5a97e3","5"="#70a5e7","6"="#9bc0ee")))
+                                  
+Heatmap(t(fm.mat.fil), name="F-measure",cluster_rows = TRUE, cluster_columns = TRUE, top_annotation = ha, left_annotation = hm, show_row_names = FALSE, show_column_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HVG + k=4 + ARI
+Subset of the 1024*225 matrix. Only datasets with equal cluster distance are selected and only HVG is used here.
+1. Since it's firstly ordered by cluster distance. The performance in overall is better in the bottom panel.
+2. The performance of RaceID2 and DIMMSC drops quickly along the cluster distance while others are relatively stable.
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HVG",colnames(adj.mat.fil))][,c(1:15)], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+
+####. Equal distance (512) + HVG + k=4 + ARI + Order by Equal/Unequal cluster distance
+Subset of the 1024*225 matrix 
+```{r fig.width=9, fig.height=6}
+adj.mat.fil.sub <- adj.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HVG",colnames(adj.mat.fil))][,c(1:15)]
+ha = rowAnnotation(df = data.frame(dat.features[1:512,][orderby(rownames(adj.mat.fil.sub),2),]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+
+Heatmap(adj.mat.fil.sub[orderby(rownames(adj.mat.fil.sub),2),], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HVG + k=4 + ARI + Order by Library size
+```{r fig.width=9, fig.height=10}
+adj.mat.fil.sub <- adj.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HVG",colnames(adj.mat.fil))][,c(1:15)]
+ha = rowAnnotation(df = data.frame(dat.features[1:512,][orderby(rownames(adj.mat.fil.sub),3),]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+
+Heatmap(adj.mat.fil.sub[orderby(rownames(adj.mat.fil.sub),3),], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HVG + k=4 + ARI + Order by Library scale
+```{r fig.width=9, fig.height=10}
+adj.mat.fil.sub <- adj.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HVG",colnames(adj.mat.fil))][,c(1:15)]
+ha = rowAnnotation(df = data.frame(dat.features[1:512,][orderby(rownames(adj.mat.fil.sub),4),]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+
+Heatmap(adj.mat.fil.sub[orderby(rownames(adj.mat.fil.sub),4),], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HVG + k=4 + ARI + Order by Dropout
+```{r  fig.width=9, fig.height=10}
+adj.mat.fil.sub <- adj.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HVG",colnames(adj.mat.fil))][,c(1:15)]
+ha = rowAnnotation(df = data.frame(dat.features[1:512,][orderby(rownames(adj.mat.fil.sub),5),]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+
+Heatmap(adj.mat.fil.sub[orderby(rownames(adj.mat.fil.sub),5),], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HVG + k=4 + F-measure
+F-measure give similar overall profile as ARI.
+```{r  fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HVG",colnames(adj.mat.fil))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HEG + k=4 + ARI
+Change to HEGs
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HEG",colnames(adj.mat.fil))][,c(1:15)], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+####. Compare with Equal distance (512) + HVG + k=4 + ARI
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HVG",colnames(adj.mat.fil))][,c(1:15)], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+Need a measure for comparing? 
+
+####. Equal distance (512) + HEG + k=4 + F-measure
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.mat.fil[grepl('EDA',rownames(fm.mat.fil)),grepl("HEG",colnames(fm.mat.fil))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HDG + k=4 + ARI
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.mat.fil[grepl('EDA',rownames(adj.mat.fil)),grepl("HDG",colnames(adj.mat.fil))][,c(1:15)], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HDG + k=4 + F-measure
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.mat.fil[grepl('EDA',rownames(fm.mat.fil)),grepl("HDG",colnames(fm.mat.fil))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal distance + HVG + k=4 + ARI
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[513:1024,]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.mat.fil[grepl('UDB',rownames(adj.mat.fil)),grepl("HVG",colnames(adj.mat.fil))][,c(1:15)], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal distance + HVG + k=4 + F-measure
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[513:1024,]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.mat.fil[grepl('UDB',rownames(fm.mat.fil)),grepl("HVG",colnames(fm.mat.fil))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal distance + HEG + k=4 + ARI
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[513:1024,]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.mat.fil[grepl('UDB',rownames(adj.mat.fil)),grepl("HEG",colnames(adj.mat.fil))][,c(1:15)], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal distance + HEG + k=4 + F-measure
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[513:1024,]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.mat.fil[grepl('UDB',rownames(fm.mat.fil)),grepl("HEG",colnames(fm.mat.fil))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal distance + HDG + k=4 + ARI
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[513:1024,]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.mat.fil[grepl('UDB',rownames(adj.mat.fil)),grepl("HDG",colnames(adj.mat.fil))][,c(1:15)], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal distance + HDG + k=4 + F-measure
+```{r fig.width=9, fig.height=6}
+ha = rowAnnotation(df = data.frame(dat.features[513:1024,]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.mat.fil[grepl('UDB',rownames(fm.mat.fil)),grepl("HDG",colnames(fm.mat.fil))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+##. Local performance for clusters with smaller size
+F-measure can be used to compare the clustering result with truth for a subset of the cells. Here we used F-measure to evaluate the performance of those algorithms only for clusters that have closer distance to each other or have relatively smaller size.
+
+####. Calculate f-measurefor the two clusters with smaller size
+```{r}
+fm.smclus.mat <- matrix(0, nrow = 512, ncol = 225)
+dats.us <- names(res)[grepl("USB", names(res))]
+for(i in c(1:length(dats.us))){
+  name = dats.us[i]
+  res.mat <- res[[name]]
+  tru.vec <- tru[[name]]
+  fm.smclus.mat[i,] = apply(res.mat,2,function(x) fmeasure(tru.vec,x,c("Group3","Group4")))
+}
+colnames(fm.smclus.mat) <- colnames(res[[1]])
+rownames(fm.smclus.mat) <- dats.us
+```
+
+####.Unequal Size + Unequal Distance + HVG + k=4 + F-measure for two small clusters
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.us[grepl("UDB", rownames(fm.smclus.mat))],]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.smclus.mat[grepl('UDB',rownames(fm.smclus.mat)) ,grepl("HVG",colnames(fm.smclus.mat))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal Size + Equal Distance + HVG + k=4 + F-measure for two small clusters
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.us[grepl("EDA", rownames(fm.smclus.mat))],]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.smclus.mat[grepl('EDA',rownames(fm.smclus.mat)) ,grepl("HVG",colnames(fm.smclus.mat))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Calculate f-measurefor the two clusters with larger size
+```{r}
+fm.lgclus.mat <- matrix(0, nrow = 512, ncol = 225)
+for(i in c(1:length(dats.us))){
+  name = dats.us[i]
+  res.mat <- res[[name]]
+  tru.vec <- tru[[name]]
+  fm.lgclus.mat[i,] = apply(res.mat,2,function(x) fmeasure(tru.vec,x,c("Group1","Group2")))
+}
+colnames(fm.lgclus.mat) <- colnames(res[[1]])
+rownames(fm.lgclus.mat) <- dats.us
+```
+
+####.Unequal Size + Unequal Distance + HVG + k=4 + F-measure for two large clusters
+```{r  fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.us[grepl("UDB", rownames(fm.lgclus.mat))],]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.lgclus.mat[grepl('UDB',rownames(fm.lgclus.mat)) ,grepl("HVG",colnames(fm.lgclus.mat))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal Size + Equal Distance + HVG + k=4 + F-measure for two large clusters
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.us[grepl("EDA", rownames(fm.lgclus.mat))],]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.lgclus.mat[grepl('EDA',rownames(fm.lgclus.mat)) ,grepl("HVG",colnames(fm.lgclus.mat))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal Size + Unequal Distance + HVG + k=4 + Difference of F-measure for two large clusters - two small clusters
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.us[grepl("UDB", rownames(fm.lgclus.mat))],]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+fm.diff.lgsmclus.mat <- fm.lgclus.mat[grepl('UDB',rownames(fm.lgclus.mat)) ,grepl("HVG",colnames(fm.lgclus.mat))][,c(1:15)] - fm.smclus.mat[grepl('UDB',rownames(fm.smclus.mat)) ,grepl("HVG",colnames(fm.smclus.mat))][,c(1:15)]
+Heatmap(fm.diff.lgsmclus.mat, name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(-0.5, 0, 0.5), c("blue", "white", "red")))
+```
+
+
+##. Local performance for clusters that are closer to each other
+#### Calculate the f-measure for clusters that are cluster to each other (Group 3,4) or far from each other (Group 1, 2)
+```{r}
+fm.undist.mat <- matrix(0, nrow = 512, ncol = 225)
+dats.ud <- names(res)[grepl("UDB", names(res))]
+for(i in c(1:length(dats.ud))){
+  name = dats.ud[i]
+  res.mat <- res[[name]]
+  tru.vec <- tru[[name]]
+  fm.undist.mat[i,] = apply(res.mat,2,function(x) fmeasure(tru.vec,x,c("Group3","Group4")))
+}
+colnames(fm.undist.mat) <- colnames(res[[1]])
+rownames(fm.undist.mat) <- dats.ud
+
+fm.eqdist.mat <- matrix(0, nrow = 512, ncol = 225)
+for(i in c(1:length(dats.ud))){
+  name = dats.ud[i]
+  res.mat <- res[[name]]
+  tru.vec <- tru[[name]]
+  fm.eqdist.mat[i,] = apply(res.mat,2,function(x) fmeasure(tru.vec,x,c("Group1","Group2")))
+}
+colnames(fm.eqdist.mat) <- colnames(res[[1]])
+rownames(fm.eqdist.mat) <- dats.ud
+```
+
+####.Equal Size + Unequal Distance + HVG + k=4 + F-measure for two closer clusters
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.ud[grepl("ESA", rownames(fm.undist.mat))],]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.undist.mat[grepl('ESA',rownames(fm.undist.mat)) ,grepl("HVG",colnames(fm.undist.mat))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Equal Size + Unequal Distance + HVG + k=4 + F-measure for two farer clusters
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.ud[grepl("ESA", rownames(fm.eqdist.mat))],]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.eqdist.mat[grepl('ESA',rownames(fm.eqdist.mat)) ,grepl("HVG",colnames(fm.eqdist.mat))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal Size + Unequal Distance + HVG + k=4 + F-measure for two closer clusters
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.ud[grepl("USB", rownames(fm.undist.mat))],]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.undist.mat[grepl('USB',rownames(fm.undist.mat)) ,grepl("HVG",colnames(fm.undist.mat))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####.Unequal Size + Unequal Distance + HVG + k=4 + F-measure for two farer clusters
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[dats.ud[grepl("USB", rownames(fm.eqdist.mat))],]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.eqdist.mat[grepl('USB',rownames(fm.eqdist.mat)) ,grepl("HVG",colnames(fm.eqdist.mat))][,c(1:15)], name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+```{r fig.width=9, fig.height=10}
+fm.dist.diff.mat <- fm.eqdist.mat[grepl('USB',rownames(fm.eqdist.mat)) ,grepl("HVG",colnames(fm.eqdist.mat))][,c(1:15)] - fm.undist.mat[grepl('USB',rownames(fm.undist.mat)) ,grepl("HVG",colnames(fm.undist.mat))][,c(1:15)]
+ha = rowAnnotation(df = data.frame(dat.features[dats.ud[grepl("USB", rownames(fm.eqdist.mat))],]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(fm.dist.diff.mat, name="F-measure",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(-0.5, 0, 0.5), c("blue", "white", "red")))
+
+```
+
+##. Maximum ARI for each data (Best performance for each method but may not necessarily have k=4)
+```{r}
+gsms <- c("HVG","HDG", "HEG")
+adj.bestp.mat <- matrix(0, nrow=1024, ncol=45)
+adj.bestp.k.mat <- matrix(0,nrow=1024, ncol=45)
+rownames(adj.bestp.mat) <- rownames(adj.mat.fil)
+colnames(adj.bestp.mat) <- unique(unlist(lapply(strsplit(colnames(adj.mat.fil),"_"), function(x) paste(x[1],x[2],sep = "_"))))
+rownames(adj.bestp.k.mat) = rownames(adj.bestp.mat)
+colnames(adj.bestp.k.mat) = colnames(adj.bestp.mat)
+clums <- unique(unlist(lapply(strsplit(colnames(adj.mat.fil),"_"), function(x) x[2])))
+for(i in rownames(adj.mat.fil)){
+  for(j in colnames(adj.bestp.mat)){
+    tmp <- adj.mat.fil[i, grepl(j, colnames(adj.mat.fil))]
+    adj.bestp.mat[i,j] = max(tmp)
+    if(is.na(strsplit(names(which.max(tmp)),"_")[[1]][3])){
+      adj.bestp.k.mat[i,j] = 4
+    }else{
+      adj.bestp.k.mat[i,j] = as.numeric(strsplit(names(which.max(tmp)),"_")[[1]][3])
+    }
+  }
+}
+```
+
+
+####. Overall best ARI for each pipeline (k varies)
+```{r fig.width=12, fig.height=9}
+ha = HeatmapAnnotation(df = data.frame(Distance_Type=distype, dat.features), 
+                       col = list(Distance_Type=c("EDA"="#c6c4c4","UDB"="#7a7676"),
+                              Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce","UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+#hm = rowAnnotation(df = data.frame(Gene_Selection=meth.gene, K=meth.k), col = list(Gene_Selection=c("HVG"="#23ce82", "HEG"="#5ae3a6", "HDG"="#9beec9"), K=c("2"="#236fce","3"="#2e7cdc","4"="#5a97e3","5"="#70a5e7","6"="#9bc0ee")))
+
+Heatmap(t(adj.bestp.mat), name="ARI",cluster_rows = TRUE, cluster_columns = TRUE, top_annotation = ha, show_row_names = FALSE, show_column_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HVG + k=4 + ARI + best performance
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.bestp.mat[grepl('EDA',rownames(adj.bestp.mat)),grepl("HVG",colnames(adj.bestp.mat))], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Equal distance (512) + HVG + k=4 + ARI + best performance (which most likely to give the correct number of clusters)
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[1:512,]), 
+                       col = list(Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.bestp.k.mat[grepl('EDA',rownames(adj.bestp.k.mat)),grepl("HVG",colnames(adj.bestp.k.mat))], name="k",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(2, 4, 6), c("blue", "grey", "red")))
+```
+
+####. Unqual distance (512) + HVG + k=4 + ARI + best performance
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[513:1024,]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.bestp.mat[grepl('UDB',rownames(adj.bestp.mat)),grepl("HVG",colnames(adj.bestp.mat))], name="ARI",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Unqual distance (512) + HVG + k=4 + ARI + best performance
+```{r fig.width=9, fig.height=10}
+ha = rowAnnotation(df = data.frame(dat.features[513:1024,]), 
+                       col = list(Cluster_Distance=c("UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+Heatmap(adj.bestp.k.mat[grepl('UDB',rownames(adj.bestp.k.mat)),grepl("HVG",colnames(adj.bestp.k.mat))], name="k",cluster_rows = FALSE, right_annotation = ha, show_row_names = FALSE, col = colorRamp2(c(2, 4, 6), c("blue", "grey", "red")))
+```
+
+Preference for overclustering or underclustering
+```{r}
+bestp.adj.k.melt <- melt(adj.bestp.k.mat[,grepl("HVG", colnames(adj.bestp.k.mat))])
+colnames(bestp.adj.k.melt) <- c("Var","Method", "K")
+bestp.adj.k.mean <- apply(adj.bestp.k.mat[,grepl("HVG", colnames(adj.bestp.k.mat))],2,function(x) mean(x, na.rm = TRUE))
+bestp.adj.k.melt$Method <- factor(bestp.adj.k.melt$Method, levels = names(bestp.adj.k.mean)[order(bestp.adj.k.mean,decreasing = TRUE)])
+ggplot(data=bestp.adj.k.melt, aes(Method, K)) +
+  geom_violin() + 
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1)) +
+  geom_jitter(height = 0, width = 0.1) +
+  geom_hline(yintercept = 4)
+```
+
+Counts numbers
+```{r}
+adj.bestp.counts <- matrix(0,nrow=45,ncol=5)
+rownames(adj.bestp.counts) <- colnames(adj.bestp.k.mat)
+colnames(adj.bestp.counts) <- c(2:6)
+for(i in c(1:45)){
+  for(j in c(2:6)){
+    adj.bestp.counts[i,j-1] = sum(adj.bestp.k.mat[,i]==j)
+  }
+}
+```
+
+```{r}
+adj.bestp.counts.hvg <- adj.bestp.counts[grepl("HVG",rownames(adj.bestp.counts)),]
+```
+
+```{r fig.width=10, fig.height=5}
+adj.bestp.counts.hvg.melt <- melt(adj.bestp.counts.hvg)
+adj.bestp.counts.hvg.melt$mean <- rep(bestp.adj.k.mean,5)
+colnames(adj.bestp.counts.hvg.melt) <- c("Method","K","Counts","Mean")
+adj.bestp.counts.hvg.melt$Method <- factor(adj.bestp.counts.hvg.melt$Method, levels = names(bestp.adj.k.mean)[order(bestp.adj.k.mean,decreasing = TRUE)])
+ggplot(adj.bestp.counts.hvg.melt, aes(Method, K)) +
+  geom_tile(color = "gray", fill="white",size=0.6)+
+  geom_point(aes(size = sqrt(Counts/1024), colour=Mean)) +
+  theme(axis.text.x = element_text(size = 14, angle = 90, hjust = 1, margin = unit(c(-2, 0, 0, 0), "mm")),axis.line=element_blank(),axis.ticks=element_blank()) + 
+  scale_size(range = c(0, 12)) +
+  scale_colour_gradientn(colours = c("blue","grey90","red"),values = c(0,0.5,1), space = "Lab",
+  na.value = "grey50", guide = "colourbar", aesthetics = "colour") + 
+  labs(size="Fraction")
+```
+
+```{r fig.height=5,fig.width=6}
+df <- melt(bestp.adj.k.mean)
+df$Method <- rownames(df)
+df$Method <- factor(df$Method, levels = names(bestp.adj.k.mean)[order(bestp.adj.k.mean,decreasing = TRUE)])
+ggplot(data=df, aes(x=Method, y=value)) + 
+  geom_point() +
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1))
+ggplot(data=df, aes(x=Method, y=value)) + 
+  geom_bar(stat = "identity",width = 0.2) +
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1)) +
+  coord_cartesian(ylim=c(4,5)) +
+  ylab("Mean Number of Clusters")
+```
+
+Likert plot
+```{r}
+library(likert)
+```
+
+```{r}
+adj.bestp.k.mat.hvg <- adj.bestp.k.mat[,grepl("HVG", colnames(adj.bestp.k.mat))]
+adj.bestp.k.mat.hvg <- data.frame(apply(adj.bestp.k.mat.hvg,2,function(x) factor(x, levels=c(2:6))))
+adj.bestp.k.mat.hvg$HVG_FlowSOM <- factor(adj.bestp.k.mat.hvg$HVG_FlowSOM, levels=c(2:6))
+colnames(adj.bestp.k.mat.hvg) <- unlist(lapply(colnames(adj.bestp.k.mat.hvg), function(x) strsplit(x,"_")[[1]][2]))
+li.bestp.k.hvg <- likert(adj.bestp.k.mat.hvg)
+li.bestp.k.hvg.likert <- likert(summary = li.bestp.k.hvg$results)
+```
+
+```{r fig.width=8, fig.height=5}
+likert.bar.plot(li.bestp.k.hvg.likert, group.order=unlist(lapply(names(bestp.adj.k.mean), function(x) strsplit(x,"_")[[1]][2]))[order(bestp.adj.k.mean,decreasing = TRUE)],text.size=4, legend="K", legend.position = "bottom")
+```
+
+
+####. Plot Heatmap without clustering
+```{r fig.width=9, fig.height=10}
+ha = HeatmapAnnotation(df = data.frame(Distance_Type=distype, dat.features), 
+                       col = list(Distance_Type=c("EDA"="#c6c4c4","UDB"="#7a7676"),
+                              Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce","UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+hm = rowAnnotation(df = data.frame(Gene_Selection=meth.gene, K=meth.k),
+                       col = list(Gene_Selection=c("HVG"="#23ce82", "HEG"="#5ae3a6", "HDG"="#9beec9"),
+                                  K=c("2"="#236fce","3"="#2e7cdc","4"="#5a97e3","5"="#70a5e7","6"="#9bc0ee")))
+
+Heatmap(t(adj.mat.fil), name="ARI",cluster_rows = FALSE, cluster_columns = FALSE, top_annotation = ha,left_annotation = hm, show_row_names = FALSE, show_column_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+####. Time and memory consumption.
+```{r}
+
+```
+
+####. Function for entropy of clustering accuracy and clustering purity
+```{r}
+h.accuracy <- function(clu, tru){
+  trus <- unique(tru)
+  clus <- unique(clu)
+  if(sum(!is.na(clu))==0){
+    return(NA)
+  }
+  hacc <- 0
+  c.mat <- table(clu,tru)
+  c.mat <- c.mat/apply(c.mat,1,sum)
+  h.accuracy <- sum(unlist(lapply(as.vector(c.mat),function(x) x*log(x))), na.rm = TRUE)
+  -h.accuracy/length(clus)
+}
+
+h.purity <- function(clu, tru){
+  trus <- unique(tru)
+  clus <- unique(clu)
+  if(sum(!is.na(clu))==0){
+    return(NA)
+  }
+  hacc <- 0
+  c.mat <- table(clu,tru)
+  c.mat <- t(t(c.mat)/apply(c.mat,2,sum))
+  h.purity <- sum(unlist(lapply(as.vector(c.mat),function(x) x*log(x))), na.rm = TRUE)
+  -h.purity/length(trus)
+}
+```
+
+#### Function for calculating entropy of whether the algorithm prefer to divide the cells into equal size or large and small ones.
+```{r}
+h.equal <- function(clu){
+  if(sum(!is.na(clu))==0){
+    return(NA)
+  }
+  ports <- data.frame(table(clu))
+  ports <- ports$Freq
+  ports <- ports/sum(ports)
+  h.equal <- sum(unlist(lapply(as.vector(ports),function(x) x*log(x))), na.rm = TRUE)
+  h.equal <- -h.equal/log(length(ports))
+  h.equal <- if(is.na(h.equal)) 0 else h.equal
+  h.equal
+}
+```
+
+#### Calculate matrix for entropy of accuracy, purity and equality.
+```{r eval=FALSE}
+ha.mat <- matrix(0, nrow = 1024, ncol = 225)
+dats <- names(res)
+for(i in c(1:length(dats))){
+  name = dats[i]
+  res.mat <- res[[name]]
+  tru.vec <- tru[[name]]
+  ha.mat[i,] = apply(res.mat,2,function(x) h.accuracy(x, tru.vec))
+}
+colnames(ha.mat) <- colnames(res[[1]])
+rownames(ha.mat) <- dats
+
+hp.mat <- matrix(0, nrow = 1024, ncol = 225)
+dats <- names(res)
+for(i in c(1:length(dats))){
+  name = dats[i]
+  res.mat <- res[[name]]
+  tru.vec <- tru[[name]]
+  hp.mat[i,] = apply(res.mat,2,function(x) h.purity(x, tru.vec))
+}
+colnames(hp.mat) <- colnames(res[[1]])
+rownames(hp.mat) <- dats
+```
+
+```{r}
+he.mat <- matrix(0, nrow = 1024, ncol = 225)
+dats <- names(res)
+for(i in c(1:length(dats))){
+  name = dats[i]
+  res.mat <- res[[name]]
+  he.mat[i,] = apply(res.mat,2,function(x) h.equal(x))
+}
+colnames(he.mat) <- colnames(res[[1]])
+rownames(he.mat) <- dats
+```
+
+#calculate the number of clusters generated
+```{r}
+nc.mat <- matrix(0, nrow = 1024, ncol = 225)
+dats <- names(res)
+for(i in c(1:length(dats))){
+  name = dats[i]
+  res.mat <- res[[name]]
+  nc.mat[i,] = apply(res.mat,2,function(x) length(unique(x)))
+}
+colnames(nc.mat) <- colnames(res[[1]])
+rownames(nc.mat) <- dats
+```
+
+####. Entropy for accurarvy vs. purity
+```{r}
+ha.mat.df <- as.data.frame(as.table(ha.mat))
+hp.mat.df <- as.data.frame(as.table(hp.mat))
+ha.mat.df$dis <- unlist(lapply(as.character(ha.mat.df$Var1),function(x) unlist(strsplit(x,"_"))[1]))
+ha.mat.df$siz <- unlist(lapply(as.character(ha.mat.df$Var1),function(x) unlist(strsplit(x,"_"))[2]))
+ha.mat.df$lsi <- unlist(lapply(as.character(ha.mat.df$Var1),function(x) unlist(strsplit(x,"_"))[3]))
+ha.mat.df$lsc <- unlist(lapply(as.character(ha.mat.df$Var1),function(x) unlist(strsplit(x,"_"))[4]))
+ha.mat.df$dro <- unlist(lapply(as.character(ha.mat.df$Var1),function(x) unlist(strsplit(x,"_"))[5]))
+ha.mat.df$gse <- unlist(lapply(as.character(ha.mat.df$Var2),function(x) unlist(strsplit(x,"_"))[1]))
+ha.mat.df$met <- unlist(lapply(as.character(ha.mat.df$Var2),function(x) unlist(strsplit(x,"_"))[2]))
+ha.mat.df$k <- unlist(lapply(as.character(ha.mat.df$Var2),function(x) unlist(strsplit(x,"_"))[3]))
+ha.mat.df$k[is.na(ha.mat.df$k)]=4
+
+
+hp.ha.mat <- ha.mat.df[,c(4:11)]
+hp.ha.mat$hp <- hp.mat.df$Freq
+hp.ha.mat$ha <- ha.mat.df$Freq
+hp.ha.mat$nc <- as.data.frame(as.table(nc.mat))$Freq
+hp.ha.mat$dat <- hp.mat.df$Var1
+hp.ha.mat$strc <- paste(substr(hp.ha.mat$dis,0,3),hp.ha.mat$siz,sep = "_")
+#plot(ha.mat, hp.mat)
+```
+
+```{r}
+ggplot(aes(x=hp,y=ha,col=(met=="Seurat")), data=hp.ha.mat)+ geom_point()
+```
+
+## Explain why sometimes the seruat hp and ha goes much higher than others.
+```{r}
+table(hp.ha.mat[hp.ha.mat$hp>2,"nc"])
+```
+
+```{r}
+data.exps <- c("EDA1_ESA_LS1_LC1_DO1",
+               "EDA2_ESA_LS2_LC2_DO2",
+               "EDA4_ESA_LS4_LC4_DO4",
+               "EDA1_USB_LS1_LC1_DO1",
+               "EDA2_USB_LS2_LC2_DO2",
+               "EDA4_USB_LS4_LC4_DO4",
+               "UDB1_ESA_LS1_LC1_DO1",
+               "UDB2_ESA_LS2_LC2_DO2",
+               "UDB4_ESA_LS4_LC4_DO4",
+               "UDB1_USB_LS1_LC1_DO1",
+               "UDB2_USB_LS2_LC2_DO2",
+               "UDB4_USB_LS4_LC4_DO4"
+               )
+```
+
+```{r fig.width=21, fig.height=24, warning=FALSE}
+plts <- list()
+for(i in data.exps){
+  hp.ha.mat.exp <- hp.ha.mat[hp.ha.mat$dat==i & hp.ha.mat$gse!="HDG",]
+  plts[[i]] <- ggplot(aes(x=hp,y=ha,col=gse,shape=met,size=k),data = hp.ha.mat.exp) + geom_point()+scale_shape_manual(values = 0:14) + ggtitle(i)
+}
+do.call("grid.arrange", c(plts, ncol=3))
+```
+
+```{r}
+a <- c(rep(1,10),rep(2,10),rep(3,10),rep(4,10))
+b <- c(rep(1,9),2,rep(1,9),3,rep(1,9),4,rep(1,9),5)
+table(b,a)
+h.accuracy(a,b)
+h.purity(a,b)
+adjustedRandIndex(a,b)
+fmeasure(a,b)
+```
+
+```{r}
+a <- c(rep(1,10),rep(2,10),rep(3,10),rep(4,10))
+b <- rep(c(1,1,2,2,3,3,4,4,5,5),4)
+table(b,a)
+h.accuracy(a,b)
+h.purity(a,b)
+adjustedRandIndex(a,b)
+fmeasure(a,b)
+```
+
+
+```{r fig.width=21, fig.height=24, warning=FALSE}
+plts <- list()
+for(i in unique(hp.ha.mat$met)){
+hp.ha.mat.exp <- hp.ha.mat[hp.ha.mat$met==i & hp.ha.mat$gse=="HVG",]
+p <- ggplot(aes(x=hp,y=ha,col=lsi,shape=strc,size=k),data = hp.ha.mat.exp) + geom_point()+scale_shape_manual(values = 0:14) + ggtitle(i)
+plts[[i]] <- p
+}
+do.call("grid.arrange", c(plts, ncol=3))
+```
+
+```{r fig.width=21, fig.height=24, warning=FALSE}
+plts <- list()
+for(i in unique(hp.ha.mat$met)){
+hp.ha.mat.exp <- hp.ha.mat[hp.ha.mat$met==i & hp.ha.mat$gse=="HVG",]
+p <- ggplot(aes(x=hp,y=ha,col=strc),data = hp.ha.mat.exp) + geom_point(aes(size=k),alpha=0.7)+scale_shape_manual(values = 0:14) + ggtitle(i)
+plts[[i]] <- p
+}
+do.call("grid.arrange",c(plts,ncol=3))
+```
+
+```{r fig.width=21, fig.height=24, warning=FALSE}
+plts <- list()
+for(i in unique(hp.ha.mat$met)){
+hp.ha.mat.exp <- hp.ha.mat[hp.ha.mat$met==i & hp.ha.mat$gse=="HVG",]
+p <- ggplot(aes(x=hp,y=ha,col=lsc),data = hp.ha.mat.exp) + geom_point(aes(size=k),alpha=0.7)+scale_shape_manual(values = 0:14) + ggtitle(i)
+plts[[i]] <- p
+}
+do.call("grid.arrange",c(plts, ncol=3))
+```
+
+```{r fig.width=21, fig.height=24, warning=FALSE}
+plts <- list()
+for(i in unique(hp.ha.mat$met)){
+hp.ha.mat.exp <- hp.ha.mat[hp.ha.mat$met==i & hp.ha.mat$gse=="HVG",]
+p <- ggplot(aes(x=hp,y=ha,col=dro,size=k),data = hp.ha.mat.exp) + geom_point(alpha=0.7) + ggtitle(i)
+plts[[i]] <- p
+}
+do.call("grid.arrange", c(plts, ncol=3))
+```
+
+
+```{r fig.width=12, fig.height=9}
+ha = HeatmapAnnotation(df = data.frame(Distance_Type=distype, dat.features), 
+                       col = list(Distance_Type=c("EDA"="#c6c4c4","UDB"="#7a7676"),
+                              Cluster_Distance=c("EDA1"="#9bc0ee","EDA2"="#70a5e7","EDA3"="#4489df","EDA4"="#236fce","UDB1"="#9bc0ee","UDB2"="#70a5e7","UDB3"="#4489df","UDB4"="#236fce"),
+                                  Cluster_Size=c("ESA"="#c0ee9b","USB"="#6fce23"),
+                                  Library_Size=c("LS1"="#eec99b", "LS2"="#e7b270","LS3"="#df9a44","LS4"="#ce8223"), 
+                                  Library_Scale= c("LC1"="#c99bee","LC2"="#b270e7","LC3"="#9a44df","LC4"="#8223ce"),
+                                  Dropout=c("DO1"="#eea09b","DO2"="#e77770","DO3"="#df4d44","DO4"="#ce2d23")))
+
+gses <- unlist(lapply(colnames(he.mat),function(x) unlist(strsplit(x,"_"))[1]))
+ks <- unlist(lapply(colnames(he.mat),function(x) unlist(strsplit(x,"_"))[3]))
+ks[is.na(ks)] = 4
+hm = rowAnnotation(df = data.frame(Gene_Selection=gses, K=ks),
+                       col = list(Gene_Selection=c("HVG"="#23ce82", "HEG"="#5ae3a6", "HDG"="#9beec9"),
+                                  K=c("2"="#236fce","3"="#2e7cdc","4"="#5a97e3","5"="#70a5e7","6"="#9bc0ee")))
+
+Heatmap(t(he.mat), name="Entropy for equal size",cluster_rows = FALSE, cluster_columns = FALSE, top_annotation = ha,left_annotation = hm, show_row_names = FALSE, show_column_names = FALSE, col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red")))
+```
+
+## Calculate the entropy for cluster size for datasets with equal size.
+```{r}
+entropy <- function(x){
+  x <- table(x)
+  x <- x/sum(x)
+  -sum(unlist(lapply(x, function(x) x*log(x))))
+}
+entropy.esa.mat <- matrix(0, nrow=225, ncol=512)
+colnames(entropy.esa.mat) <- dats[grepl("ESA", dats)]
+rownames(entropy.esa.mat) <- colnames(res[[1]])
+for(i in dats[grepl("ESA", dats)]){
+  res.mat <- res[[i]]
+  entropy.esa.mat[,i] <- apply(res.mat,2,entropy)
+}
+```
+
+## Number of clusters generated
+```{r}
+number.esa.mat <- matrix(0, nrow=225, ncol=512)
+colnames(number.esa.mat) <- dats[grepl("ESA", dats)]
+rownames(number.esa.mat) <- colnames(res[[1]])
+for(i in dats[grepl("ESA", dats)]){
+  res.mat <- res[[i]]
+  number.esa.mat[,i] <- apply(res.mat,2,function(x) length(unique(x)))
+}
+```
+
+
+```{r}
+pips <- rownames(entropy.esa.mat)
+pips.hvg.4 <- pips[grepl("HVG",pips)]
+pips.hvg.4 <- pips.hvg.4[1:15]
+#remove cases where more or less than 4 clusters are generatd
+entropy.esa.mat.4 = entropy.esa.mat[pips.hvg.4,]
+entropy.esa.mat.4[number.esa.mat[pips.hvg.4,]!=4] = NA
+entropy.esa.df <- melt(entropy.esa.mat.4)
+colnames(entropy.esa.df) <- c("Method","Var", "Entropy")
+entropy.esa.df$Method <- unlist(lapply(as.character(entropy.esa.df$Method), function(x) strsplit(x,"_")[[1]][2]))
+entropy.esa.mean <- apply(entropy.esa.mat.4,1,function(x) mean(x, na.rm = TRUE))
+entropy.esa.df$Method <- factor(entropy.esa.df$Method, levels = unlist(lapply(names(entropy.esa.mean), function(x) strsplit(x,"_")[[1]][2]))[order(entropy.esa.mean,decreasing = TRUE)])
+ggplot(data=entropy.esa.df, aes(Method, Entropy)) +
+  geom_violin() + 
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1)) +
+  geom_jitter(height = 0, width = 0.1) +
+  geom_hline(yintercept = 1.386) 
+```
+
+```{r}
+pips <- rownames(entropy.esa.mat)
+pips.heg.4 <- pips[grepl("HEG",pips)]
+pips.heg.4 <- pips.heg.4[1:15]
+#remove cases where more or less than 4 clusters are generatd
+entropy.esa.mat.4 = entropy.esa.mat[pips.heg.4,]
+entropy.esa.mat.4[number.esa.mat[pips.heg.4,]!=4] = NA
+entropy.esa.df <- melt(entropy.esa.mat.4)
+colnames(entropy.esa.df) <- c("Method","Var", "Entropy")
+entropy.esa.mean <- apply(entropy.esa.mat.4,1,function(x) mean(x, na.rm = TRUE))
+entropy.esa.df$Method <- factor(entropy.esa.df$Method, levels = names(entropy.esa.mean)[order(entropy.esa.mean,decreasing = TRUE)])
+ggplot(data=entropy.esa.df, aes(Method, Entropy)) +
+  geom_violin() + 
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1)) +
+  geom_jitter(height = 0, width = 0.1) +
+  geom_hline(yintercept = 1.386) 
+```
+
+
+```{r}
+entropy.usb.mat <- matrix(0, nrow=225, ncol=512)
+colnames(entropy.usb.mat) <- dats[grepl("USB", dats)]
+rownames(entropy.usb.mat) <- colnames(res[[1]])
+for(i in dats[grepl("USB", dats)]){
+  res.mat <- res[[i]]
+  entropy.usb.mat[,i] <- apply(res.mat,2,entropy)
+}
+```
+```{r}
+number.usb.mat <- matrix(0, nrow=225, ncol=512)
+colnames(number.usb.mat) <- dats[grepl("USB", dats)]
+rownames(number.usb.mat) <- colnames(res[[1]])
+for(i in dats[grepl("USB", dats)]){
+  res.mat <- res[[i]]
+  number.usb.mat[,i] <- apply(res.mat,2,function(x) length(unique(x)))
+}
+```
+
+```{r}
+pips <- rownames(entropy.usb.mat)
+pips.hvg.4 <- pips[grepl("HVG",pips)]
+pips.hvg.4 <- pips.hvg.4[1:15]
+entropy.usb.mat.4 = entropy.usb.mat[pips.hvg.4,]
+entropy.usb.mat.4[number.usb.mat[pips.hvg.4,]!=4] = NA
+entropy.usb.df <- melt(entropy.usb.mat.4)
+colnames(entropy.usb.df) <- c("Method","Var", "Entropy")
+entropy.usb.df$Method <- unlist(lapply(as.character(entropy.usb.df$Method), function(x) strsplit(x,"_")[[1]][2]))
+entropy.usb.mean <- apply(entropy.usb.mat.4,1,function(x) mean(x, na.rm = TRUE))
+entropy.usb.df$Method <- factor(entropy.usb.df$Method, levels = unlist(lapply(names(entropy.usb.mean), function(x) strsplit(x,"_")[[1]][2]))[order(entropy.usb.mean,decreasing = TRUE)])
+ggplot(data=entropy.usb.df, aes(Method, Entropy)) +
+  geom_violin() + 
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1)) +
+  geom_jitter(height = 0, width = 0.1) +
+  geom_hline(yintercept = 1.329)
+```
+
+
+```{r}
+pips <- rownames(entropy.usb.mat)
+pips.heg.4 <- pips[grepl("HEG",pips)]
+pips.heg.4 <- pips.heg.4[1:15]
+entropy.usb.mat.4 = entropy.usb.mat[pips.heg.4,]
+entropy.usb.mat.4[number.usb.mat[pips.heg.4,]!=4] = NA
+entropy.usb.df <- melt(entropy.usb.mat.4)
+colnames(entropy.usb.df) <- c("Method","Var", "Entropy")
+entropy.usb.mean <- apply(entropy.usb.mat.4,1,function(x) mean(x, na.rm = TRUE))
+entropy.usb.df$Method <- factor(entropy.usb.df$Method, levels = names(entropy.usb.mean)[order(entropy.usb.mean,decreasing = TRUE)])
+ggplot(data=entropy.usb.df, aes(Method, Entropy)) +
+  geom_violin() + 
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1)) +
+  geom_jitter(height = 0, width = 0.1) +
+  geom_hline(yintercept = 1.329)
+```
+
+
+## Calculate the how gene selection methods affect the results
+```{r}
+pval.gensel.hvg_heg <- matrix(0, nrow = 5, ncol=15)
+meths <- unique(meth.algo)
+colnames(pval.gensel.hvg_heg) <- meths
+rownames(pval.gensel.hvg_heg) <- c(2,3,4,5,6)
+mean.diff.gensel.hvg_heg <- pval.gensel.hvg_heg
+pval.gensel.hvg_hdg <- pval.gensel.hvg_heg
+mean.diff.gensel.hvg_hdg <- mean.diff.gensel.hvg_heg
+for(i in meths){
+  for(j in c(2,3,4,5,6)){
+    if(j==4){
+      a = t.test(adj.mat.natozero[,paste("HVG",i,sep = "_")],adj.mat.natozero[,paste("HEG",i,sep = "_")],paired = TRUE, alternative = "greater")
+      b = t.test(adj.mat.natozero[,paste("HVG",i,sep = "_")],adj.mat.natozero[,paste("HDG",i,sep = "_")],paired = TRUE, alternative = "greater")
+      pval.gensel.hvg_heg[j-1,i] = a$p.value
+      mean.diff.gensel.hvg_heg[j-1,i]=a$estimate
+      pval.gensel.hvg_hdg[j-1,i] = b$p.value
+      mean.diff.gensel.hvg_hdg[j-1,i]=b$estimate
+    }else{
+      a = t.test(adj.mat.natozero[,paste("HVG",i,j,sep = "_")],adj.mat.natozero[,paste("HEG",i,j,sep = "_")],paired = TRUE, alternative = "greater")
+      b = t.test(adj.mat.natozero[,paste("HVG",i,j,sep = "_")],adj.mat.natozero[,paste("HDG",i,j,sep = "_")],paired = TRUE, alternative = "greater")
+      pval.gensel.hvg_heg[j-1,i] = a$p.value
+      mean.diff.gensel.hvg_heg[j-1,i]=a$estimate
+      pval.gensel.hvg_hdg[j-1,i] = b$p.value
+      mean.diff.gensel.hvg_hdg[j-1,i]=b$estimate
+    }
+  }
+}
+```
+
+```{r}
+Heatmap(-log(pval.gensel.hvg_heg), cluster_rows = FALSE, cluster_columns = FALSE)
+Heatmap(mean.diff.gensel.hvg_heg, cluster_rows = FALSE, cluster_columns = FALSE)
+```
+
+```{r fig.width=8, fig.height=4}
+col_fun = circlize::colorRamp2(c(-0.001, 0, 0.15), c("blue","grey90", "red"))
+pval.gensel.hvg_heg.log <- -log10(pval.gensel.hvg_heg)
+pval.gensel.hvg_heg.log[is.na(pval.gensel.hvg_heg.log)] = 0
+Heatmap(pval.gensel.hvg_heg.log, cluster_rows = FALSE, cluster_columns = FALSE,rect_gp = gpar(type = "none"), cell_fun = function(j, i, x, y, width, height, fill) {
+  grid.rect(x = x, y = y, width = width, height = height, 
+            gp = gpar(col = "grey", fill = NA))
+            grid.circle(x = x, y = y, r = sqrt(pval.gensel.hvg_heg.log[i, j])/10 * min(unit.c(width, height)), 
+            gp = gpar(fill = col_fun(mean.diff.gensel.hvg_heg[i, j]), col = NA))})
+```
+
+```{r fig.width=10, fig.height=5}
+pval.gensel.hvg_heg.log.melt <- melt(pval.gensel.hvg_heg.log)
+mean.diff.gensel.hvg_heg.melt <- melt(mean.diff.gensel.hvg_heg)
+mean.pva.gensel.hvg_heg <- data.frame(k=pval.gensel.hvg_heg.log.melt$Var1, Method=pval.gensel.hvg_heg.log.melt$Var2, logp=pval.gensel.hvg_heg.log.melt$value, meandiff=mean.diff.gensel.hvg_heg.melt$value)
+ggplot(mean.pva.gensel.hvg_heg, aes(Method, k)) +
+  geom_tile(color = "gray", fill="white",size=0.6)+
+  geom_point(aes(size = sqrt(logp), colour=meandiff)) +
+  theme(axis.text.x = element_text(size = 16, angle = 90, hjust = 1, margin = unit(c(-2, 0, 0, 0), "mm")),axis.text.y = element_text(size = 16),axis.line=element_blank(),axis.ticks=element_blank()) + 
+  scale_colour_gradient2(low = "blue", mid = "grey90",
+  high = "red", midpoint = 0.05, space = "Lab",
+  na.value = "grey50", guide = "colourbar", aesthetics = "colour") + 
+  scale_size(range = c(0, 12)) +
+  labs(size="-log10(pval)", colour="Mean difference")
+```
+
+
+```{r}
+Heatmap(pval.gensel.hvg_hdg, cluster_rows = FALSE, cluster_columns = FALSE,col = colorRamp2(c(0,0.01, 1), c("blue", "white", "red")))
+Heatmap(mean.diff.gensel.hvg_hdg, cluster_rows = FALSE, cluster_columns = FALSE)
+```
+
+
+```{r fig.width=10, fig.height=5}
+pval.gensel.hvg_hdg.log <- -log10(pval.gensel.hvg_hdg)
+pval.gensel.hvg_hdg.log[is.na(pval.gensel.hvg_hdg.log)] = 0
+pval.gensel.hvg_hdg.log.melt <- melt(pval.gensel.hvg_hdg.log)
+mean.diff.gensel.hvg_hdg.melt <- melt(mean.diff.gensel.hvg_hdg)
+mean.pva.gensel.hvg_hdg <- data.frame(k=pval.gensel.hvg_hdg.log.melt$Var1, Method=pval.gensel.hvg_hdg.log.melt$Var2, logp=pval.gensel.hvg_hdg.log.melt$value, meandiff=mean.diff.gensel.hvg_hdg.melt$value)
+ggplot(mean.pva.gensel.hvg_hdg, aes(Method, k)) +
+  geom_tile(color = "gray", fill="white",size=0.6)+
+  geom_point(aes(size = sqrt(logp), colour=meandiff)) +
+  theme(axis.text.x = element_text(size = 16, angle = 90, hjust = 1, margin = unit(c(-2, 0, 0, 0), "mm")),axis.line=element_blank(),axis.ticks=element_blank(),axis.text.y = element_text(size = 16)) + 
+  scale_colour_gradient2(low = "blue", mid = "grey90",
+  high = "red", midpoint = 0.2, space = "Lab",
+  na.value = "grey50", guide = "colourbar", aesthetics = "colour") + 
+  scale_size(range = c(0, 12)) +
+  labs(size="-log10(pval)", colour="Mean difference")
+```
+
+```{r fig.width=9, fig.height=9}
+mean.pva.gensel <- rbind(mean.pva.gensel.hvg_heg, mean.pva.gensel.hvg_hdg)
+mean.pva.gensel$gensel <- c(rep("HVG vs. HEG", 75), rep("HVG vs. HDG", 75))
+ggplot(mean.pva.gensel, aes(Method, k)) +
+  geom_tile(color = "gray", fill="white",size=0.6)+
+  geom_point(aes(size = sqrt(logp), colour=meandiff)) +
+  facet_wrap( ~ gensel, ncol = 1) +
+  theme(axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust=0.3,margin = unit(c(-2, 0, 0, 0), "mm")),axis.line=element_blank(),axis.ticks=element_blank(), strip.text.x = element_text(size = 16),axis.text.y = element_text(size = 14)) + 
+  scale_colour_gradientn(colors=c("blue","grey90","red"),values=c(0,0.1,1), space = "Lab",
+  na.value = "grey50", guide = "colourbar", aesthetics = "colour") + 
+  scale_size(range = c(0, 12)) +
+  labs(size="-log10(pval)", colour="Mean difference")
+```
+
+```{r fig.width=9, fig.height=9}
+mean.pva.gensel <- rbind(mean.pva.gensel.hvg_heg, mean.pva.gensel.hvg_hdg)
+mean.pva.gensel$gensel <- c(rep("HVG vs. HEG", 75), rep("HVG vs. HDG", 75))
+ggplot(mean.pva.gensel, aes(Method, k)) +
+  geom_tile(color = "gray", fill="white",size=0.6)+
+  geom_point(aes(size = sqrt(abs(meandiff)), colour=logp)) +
+  facet_wrap( ~ gensel, ncol = 1) +
+  theme(axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust=0.3,margin = unit(c(-2, 0, 0, 0), "mm")),axis.line=element_blank(),axis.ticks=element_blank(), strip.text.x = element_text(size = 16),axis.text.y = element_text(size = 14)) + 
+  scale_colour_gradientn(colors=c("blue","grey90","red"),values=c(0,0.1,1), space = "Lab",
+  na.value = "grey50", guide = "colourbar", aesthetics = "colour") + 
+  scale_size(range = c(0, 12)) +
+  labs(size="-log10(pval)", colour="Mean difference")
+```
+
+reshape the results matrix
+```{r}
+libsize.dropout.mat <- matrix(0, nrow = 16, ncol = 16)
+for(dat in rownames(adj.mat)){
+  if(grepl("EDA",dat)){
+    if(grepl("ESA",dat)){
+      i=as.numeric(substr(strsplit(dat,"_")[[1]][1],4,4))
+      j=as.numeric(substr(strsplit(dat,"_")[[1]][4],3,4))
+      x=as.numeric(substr(strsplit(dat,"_")[[1]][3],3,4))
+      y=as.numeric(substr(strsplit(dat,"_")[[1]][5],3,4))
+      libsize.dropout.mat[4*(y-1)+j, 4*(x-1)+i] = adj.mat[dat,"HVG_Seurat"]
+    }
+  }
+}
+#only use equal size and equal distance.
+```
+
+```{r fig.width=6, fig.height=5}
+libsize.dropout.mat[libsize.dropout.mat<0]=0
+Heatmap(libsize.dropout.mat, cluster_rows = FALSE, cluster_columns = FALSE)
+```
+
+```{r}
+## ref https://github.com/cpwardell/3dbarplot/blob/master/3dbarplot.R
+## Load packages
+library(rgl)
+library(ggplot2)
+
+#### START OF FUNCTIONS
+
+## Functions modified from the "demo(hist3d)" examples in the rgl package:
+# library(rgl)
+# demo(hist3d)
+## Would it have killed the author to comment their code?
+
+## Draws a single "column" or "stack".
+## X and Y coordinates determine the area of the stack
+## The Z coordinate determines the height of the stack
+stackplot.3d<-function(x,y,z=1,alpha=1,topcol="#078E53",sidecol="#aaaaaa"){
+  
+  ## These lines allow the active rgl device to be updated with multiple changes
+  save <- par3d(skipRedraw=TRUE)
+  on.exit(par3d(save))
+  
+  ## Determine the coordinates of each surface of the stack and its edges
+  x1<-c(rep(c(x[1],x[2],x[2],x[1]),3),rep(x[1],4),rep(x[2],4))
+  z1<-c(rep(0,4),rep(c(0,0,z,z),4))
+  y1<-c(y[1],y[1],y[2],y[2],rep(y[1],4),rep(y[2],4),rep(c(y[1],y[2],y[2],y[1]),2))
+  x2<-c(rep(c(x[1],x[1],x[2],x[2]),2),rep(c(x[1],x[2],rep(x[1],3),rep(x[2],3)),2))
+  z2<-c(rep(c(0,z),4),rep(0,8),rep(z,8) )
+  y2<-c(rep(y[1],4),rep(y[2],4),rep(c(rep(y[1],3),rep(y[2],3),y[1],y[2]),2) )
+  
+  ## These lines create the sides of the stack and its top surface
+  rgl.quads(x1,z1,y1,col=rep(sidecol,each=4),alpha=alpha)
+  rgl.quads(c(x[1],x[2],x[2],x[1]),rep(z,4),c(y[1],y[1],y[2],y[2]),
+            col=rep(topcol,each=4),alpha=1) 
+  ## This line adds black edges to the stack
+  rgl.lines(x2,z2,y2,col="#000000")
+}
+# Example:
+#stackplot.3d(c(-0.5,0.5),c(4.5,5.5),3,alpha=0.6)
+
+## Calls stackplot.3d repeatedly to create a barplot
+# x is a constant distance along x axis
+# y is the depth of column
+# z is the height of column
+barz3d<-function(x,y,z,alpha=1,topcol="#078E53",sidecol="#aaaaaa",scaley=1,scalez=1){
+  ## These lines allow the active rgl device to be updated with multiple changes
+  save <- par3d(skipRedraw=TRUE)
+  on.exit(par3d(save))
+
+  ## Plot each of the columns
+  n=length(x)
+  breaks.x = seq(0,n-1)
+  for(i in 1:n){
+    stackplot.3d(c(breaks.x[i],breaks.x[i]+1),c(0,-y[i])*scaley,z[i]*scalez,alpha=alpha,topcol=topcol)
+  }
+  ## Set the viewpoint
+  rgl.viewpoint(theta=30,phi=25)
+}
+# Example
+#barz3d(x=LETTERS[1:4],y=c(0.8,0.2,0.9,0.15),z=c(0.11,0.75,0.89,0.16),alpha=0.4,scaley=2,scalez=2)
+
+#### END OF FUNCTIONS
+
+## Example data:
+# 4 mutations in 100 samples
+# VAF range is from 0 to 1
+# A is frequent and usually subclonal
+# B is infrequent and usually clonal
+# C is frequent and usually clonal
+# D is infrequent and usually subclonal
+
+Avaf=rnorm(80,0.1,0.05)
+Bvaf=rnorm(20,0.8,0.1)
+Cvaf=rnorm(90,0.9,0.05)
+Dvaf=rnorm(15,0.15,0.05)
+
+## Summarize data in new object
+vafsum=data.frame(median=sapply(list(Avaf,Bvaf,Cvaf,Dvaf),median),
+                  proportion=sapply(list(Avaf,Bvaf,Cvaf,Dvaf),function(x){length(x)/100}))
+rownames(vafsum)=c(LETTERS[1:4])
+
+## Code to produce coxcomb/polar coordinate plot adapted from:
+## http://robinlovelace.net/r/2013/12/27/coxcomb-plots-spiecharts-R.html
+## https://github.com/Robinlovelace/lilacPlot
+pos = 0.5 * (cumsum(vafsum$proportion) + cumsum(c(0, vafsum$proportion[-length(vafsum$proportion)])))
+p = ggplot(vafsum, aes(x=pos)) + geom_bar(aes(y=median), width=vafsum$proportion, color = "black", stat = "identity") + scale_x_continuous(labels = rownames(vafsum), breaks = pos) # Linear version is ok
+p + coord_polar(theta = "x")
+# (ignore warnings thrown)
+
+## A barplot where height represents median VAF and the color of the bar represents
+## how many samples contain each mutation
+barplot(vafsum$median,names=LETTERS[1:4],col=rgb(0.1,0.1,0.1,vafsum$proportion))
+
+## Our new 3D barplot function
+barz3d(x=LETTERS[1:4],y=vafsum$proportion,z=vafsum$median,alpha=0.4,scaley=2,scalez=2)
+rgl.snapshot("3dbarplot.png", fmt = "png", top = TRUE )
+```
+
+
+Scatter plot for each method and k
+1. HVG vs HEG
+```{r fig.width=15, fig.height=50}
+plts <- list()
+n = 1
+for(i in meths){
+  for(j in c(2,3,4,5,6)){
+    if(j==4){
+      df <- data.frame(HVG = adj.mat.natozero[,paste("HVG",i,sep = "_")], HEG = adj.mat.natozero[,paste("HEG",i,sep = "_")])
+    }else{
+      df <- data.frame(HVG = adj.mat.natozero[,paste("HVG",i,j,sep = "_")], HEG = adj.mat.natozero[,paste("HEG",i,j,sep = "_")])
+    }
+    p <- ggplot(data = df, aes(HVG, HEG)) + geom_point() + geom_abline(intercept = 0, slope = 1) + ggtitle(paste0(i," k=",j))
+    plts[[n]] <- p
+    n = n+1
+  }
+}
+do.call("grid.arrange", c(plts, ncol=5))
+```
+
+```{r fig.width=15, fig.height=50}
+plts <- list()
+n = 1
+for(i in meths){
+  for(j in c(2,3,4,5,6)){
+    if(j==4){
+      df <- data.frame(HVG = adj.mat.natozero[,paste("HVG",i,sep = "_")], HDG = adj.mat.natozero[,paste("HDG",i,sep = "_")])
+    }else{
+      df <- data.frame(HVG = adj.mat.natozero[,paste("HVG",i,j,sep = "_")], HDG = adj.mat.natozero[,paste("HDG",i,j,sep = "_")])
+    }
+    p <- ggplot(data = df, aes(HVG, HDG)) + geom_point() + geom_abline(intercept = 0, slope = 1) + ggtitle(paste0(i," k=",j))
+    plts[[n]] <- p
+    n = n+1
+  }
+}
+do.call("grid.arrange", c(plts, ncol=5))
+```
+
+```{r fig.width=15, fig.height=5}
+plts <- list()
+n = 1
+for(i in c("Seurat","SC3","RaceID2")){
+  for(j in c(4)){
+    if(j==4){
+      df <- data.frame(HVG = adj.mat.natozero[,paste("HVG",i,sep = "_")], HEG = adj.mat.natozero[,paste("HEG",i,sep = "_")])
+    }else{
+      df <- data.frame(HVG = adj.mat.natozero[,paste("HVG",i,j,sep = "_")], HEG = adj.mat.natozero[,paste("HEG",i,j,sep = "_")])
+    }
+    p <- ggplot(data = df, aes(HVG, HEG)) + geom_point() + geom_abline(intercept = 0, slope = 1) +
+      theme(plot.title = element_text(size=20),
+            axis.title.x = element_text(size=20),
+            axis.title.y = element_text(size=20))+  
+      ggtitle(paste0(i," k=",j))
+    plts[[n]] <- ggMarginal(p, type="density",fill = 'grey90')
+    n = n+1
+  }
+}
+do.call("grid.arrange", c(plts, ncol=3))
+```
+
+## Calculate the correlation between factors and the results.
+```{r}
+dat.levels <- data.frame(dat.features)
+dat.levels$ClusterDistance <- as.numeric(substr(dat.levels[,1],4,5))
+dat.levels$ClusterSize <- as.character(dat.levels[,2])
+dat.levels$ClusterSize[dat.levels$ClusterSize=="ESA"]=1
+dat.levels$ClusterSize[dat.levels$ClusterSize=="USB"]=2
+dat.levels$ClusterSize = as.numeric(dat.levels$ClusterSize)
+dat.levels$LibrarySize <- as.numeric(substr(dat.levels[,3],3,4))
+dat.levels$LibraryScale <- as.numeric(substr(dat.levels[,4],3,4))
+dat.levels$Dropout_level <- as.numeric(substr(dat.levels[,5],3,4))
+```
+
+```{r}
+adj.mat.natozero <- adj.mat
+adj.mat.natozero[is.na(adj.mat.natozero)]=0
+adj.mat.cor <- matrix(0,nrow=225, ncol=5)
+for(i in c(1:5)){
+  adj.mat.cor[,i] = apply(adj.mat.natozero,2,function(x) cor(x, dat.levels[,i+5], method="spearman"))
+}
+rownames(adj.mat.cor) <- colnames(adj.mat)
+colnames(adj.mat.cor) <- c("ClusterDistance","ClusterSize","LibrarySize","LibraryScale","Dropout")
+```
+
+```{r fig.width=5,fig.height=10}
+Heatmap(adj.mat.cor[grep("HVG",rownames(adj.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE,col = colorRamp2(c(-0.5, 0, 1), c("blue", "white", "red")))
+Heatmap(adj.mat.cor[grep("HEG",rownames(adj.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE,col = colorRamp2(c(-0.5, 0, 1), c("blue", "white", "red")))
+Heatmap(adj.mat.cor[grep("HDG",rownames(adj.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE,col = colorRamp2(c(-0.5, 0, 1), c("blue", "white", "red")))
+```
+
+linear regression model
+```{r}
+dat.levels$ClusterDistanceType <- unlist(lapply(dat.levels$Cluster_Distance, function(x) substr(x,1,3)))
+dat.levels$ClusterSizeType <- dat.levels$Cluster_Size
+dat.levels <- subset(dat.levels, select = -ClusterSize)
+```
+
+```{r}
+df <- data.frame(dat.levels[,6:11])
+df$HVG_Seurat <- adj.mat[,"HVG_Seurat"]
+add.model <- lm(HVG_Seurat ~., data = df)
+int.model1 <- lm(HVG_Seurat ~. + ClusterDistanceType:ClusterSizeType, data = df)
+int.model2 <- lm(HVG_Seurat ~. + ClusterDistance:ClusterDistanceType, data = df)
+int.full2.model <- lm(HVG_Seurat ~.*., data = df)
+int.model3 <- lm(HVG_Seurat ~. + LibrarySize:ClusterDistance + LibrarySize:Dropout_level + LibraryScale:Dropout_level + ClusterDistance:ClusterDistanceType, data = df)
+```
+
+
+```{r}
+#Addtive model for all
+adj.mat.lm.pval <- matrix(0,nrow=225, ncol=6)
+rownames(adj.mat.lm.pval) <- colnames(adj.mat)
+for(i in c(1:225)){
+  df <- data.frame(dat.levels[,6:11])
+  df$pip <- adj.mat[,i]
+  if(sum(!is.na(df$pip))==0){
+    adj.mat.lm.pval[i,] = rep(NA, 6)
+  }else{
+    add.model <- lm(pip ~., data = df)
+    adj.mat.lm.pval[i,] = summary(add.model)$coefficients[2:7,4]
+  }
+  colnames(adj.mat.lm.pval) = names(summary(add.model)$coefficients[2:7,4])
+}
+```
+
+```{r}
+#Addtive model + interaction terms for all
+adj.mat.lm.int.pval <- matrix(0,nrow=225, ncol=10)
+rownames(adj.mat.lm.int.pval) <- colnames(adj.mat)
+for(i in c(1:225)){
+  df <- data.frame(dat.levels[,6:11])
+  df$pip <- adj.mat[,i]
+  if(sum(!is.na(df$pip))==0){
+    adj.mat.lm.int.pval[i,] = rep(NA, 10)
+  }else{
+    int.model <- lm(pip ~. + LibrarySize:ClusterDistance + LibrarySize:Dropout_level + LibraryScale:Dropout_level + ClusterDistance:ClusterDistanceType, data = df)
+    adj.mat.lm.int.pval[i,] = summary(int.model)$coefficients[2:11,4]
+  }
+  colnames(adj.mat.lm.int.pval) = names(summary(int.model)$coefficients[2:11,4])
+}
+```
+
+```{r fig.width=5,fig.height=5}
+Heatmap(-log10(adj.mat.lm.pval[grepl("HVG",rownames(adj.mat.lm.pval)),][1:15,]),cluster_rows = FALSE, cluster_columns = FALSE, name="-log10(pval)")
+Heatmap(-log10(adj.mat.lm.pval[grepl("HEG",rownames(adj.mat.lm.pval)),]),cluster_rows = FALSE, cluster_columns = FALSE)
+Heatmap(-log10(adj.mat.lm.pval[grepl("HDG",rownames(adj.mat.lm.pval)),]),cluster_rows = FALSE, cluster_columns = FALSE)
+```
+
+```{r fig.width=5,fig.height=5}
+Heatmap(-log10(adj.mat.lm.int.pval[grepl("HVG",rownames(adj.mat.lm.int.pval)),][1:15,]),cluster_rows = FALSE, cluster_columns = FALSE)
+Heatmap(-log10(adj.mat.lm.int.pval[grepl("HEG",rownames(adj.mat.lm.int.pval)),]),cluster_rows = FALSE, cluster_columns = FALSE)
+Heatmap(-log10(adj.mat.lm.int.pval[grepl("HDG",rownames(adj.mat.lm.int.pval)),]),cluster_rows = FALSE, cluster_columns = FALSE)
+```
+
+
+```{r}
+library(glmnet)
+```
+
+```{r}
+df <- data.frame(dat.levels[,6:11])
+f <- as.formula(y ~ .*.)
+y <- adj.mat[,"HVG_Seurat"]
+x <- model.matrix(f, df)[, -1]
+lasso.model <- glmnet(x, y, alpha = 1)
+```
+
+
+
+```{r}
+fm.mat.natozero <- fm.mat
+fm.mat.natozero[is.na(fm.mat.natozero)]=0
+fm.mat.cor <- matrix(0,nrow=225, ncol=5)
+for(i in c(1:5)){
+  fm.mat.cor[,i] = apply(fm.mat.natozero,2,function(x) cor(x, dat.levels[,i+5], method="spearman"))
+}
+rownames(fm.mat.cor) <- colnames(fm.mat)
+colnames(fm.mat.cor) <- c("ClusterDistance","ClusterSize","LibrarySize","LibraryScale","Dropout")
+```
+
+```{r fig.width=5,fig.height=10}
+Heatmap(fm.mat.cor[grep("HVG",rownames(fm.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+Heatmap(fm.mat.cor[grep("HEG",rownames(fm.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+Heatmap(fm.mat.cor[grep("HDG",rownames(fm.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+```
+
+Uneqal distance
+```{r}
+fm.dist.diff.mat <- fm.eqdist.mat - fm.undist.mat
+fm.clus.diff.mat <- fm.lgclus.mat - fm.smclus.mat
+```
+
+```{r}
+fm.lgclus.mat.natozero <- fm.lgclus.mat
+fm.lgclus.mat.natozero[is.na(fm.lgclus.mat.natozero)] = 0
+
+fm.smclus.mat.natozero <- fm.smclus.mat
+fm.smclus.mat.natozero[is.na(fm.smclus.mat.natozero)] = 0
+```
+
+```{r  fig.width=6,fig.height=8}
+Heatmap(fm.lgclus.mat.natozero, show_row_names = FALSE, show_column_names = FALSE)
+Heatmap(fm.smclus.mat.natozero, show_row_names = FALSE, show_column_names = FALSE)
+```
+
+```{r fig.width=6,fig.height=8}
+Heatmap(fm.clus.mat.natozero, show_row_names = FALSE, show_column_names = FALSE)
+```
+
+```{r}
+fm.dist.dats <- rownames(fm.dist.diff.mat)
+fm.dist.dats.features <- data.frame(Cluster_Distance =rep(NA,512))
+fm.dist.dats.features$Cluster_Distance <- unlist(lapply(fm.dist.dats, function(x) strsplit(x, "_")[[1]][1]))
+fm.dist.dats.features$Cluster_Size <- unlist(lapply(fm.dist.dats, function(x) strsplit(x, "_")[[1]][2]))
+fm.dist.dats.features$Library_Size <- unlist(lapply(fm.dist.dats, function(x) strsplit(x, "_")[[1]][3]))
+fm.dist.dats.features$Library_Scale <- unlist(lapply(fm.dist.dats, function(x) strsplit(x, "_")[[1]][4]))
+fm.dist.dats.features$Dropout <- unlist(lapply(fm.dist.dats, function(x) strsplit(x, "_")[[1]][5]))
+
+fm.dist.dats.features <- data.frame(fm.dist.dats.features)
+fm.dist.dats.features$ClusterDistance <- as.numeric(substr(fm.dist.dats.features[,1],4,5))
+fm.dist.dats.features$ClusterSize <- as.character(fm.dist.dats.features[,2])
+fm.dist.dats.features$ClusterSize[fm.dist.dats.features$ClusterSize=="ESA"]=1
+fm.dist.dats.features$ClusterSize[fm.dist.dats.features$ClusterSize=="USB"]=2
+fm.dist.dats.features$ClusterSize = as.numeric(fm.dist.dats.features$ClusterSize)
+fm.dist.dats.features$LibrarySize <- as.numeric(substr(fm.dist.dats.features[,3],3,4))
+fm.dist.dats.features$LibraryScale <- as.numeric(substr(fm.dist.dats.features[,4],3,4))
+fm.dist.dats.features$Dropout_level <- as.numeric(substr(fm.dist.dats.features[,5],3,4))
+```
+
+```{r}
+fm.clus.dats <- rownames(fm.clus.diff.mat)
+fm.clus.dats.features <- data.frame(Cluster_Distance =rep(NA,512))
+fm.clus.dats.features$Cluster_Distance <- unlist(lapply(fm.clus.dats, function(x) strsplit(x, "_")[[1]][1]))
+fm.clus.dats.features$Cluster_Size <- unlist(lapply(fm.clus.dats, function(x) strsplit(x, "_")[[1]][2]))
+fm.clus.dats.features$Library_Size <- unlist(lapply(fm.clus.dats, function(x) strsplit(x, "_")[[1]][3]))
+fm.clus.dats.features$Library_Scale <- unlist(lapply(fm.clus.dats, function(x) strsplit(x, "_")[[1]][4]))
+fm.clus.dats.features$Dropout <- unlist(lapply(fm.clus.dats, function(x) strsplit(x, "_")[[1]][5]))
+
+fm.clus.dats.features <- data.frame(fm.clus.dats.features)
+fm.clus.dats.features$ClusterDistance <- as.numeric(substr(fm.clus.dats.features[,1],4,5))
+fm.clus.dats.features$ClusterSize <- as.character(fm.clus.dats.features[,2])
+fm.clus.dats.features$ClusterSize[fm.clus.dats.features$ClusterSize=="ESA"]=1
+fm.clus.dats.features$ClusterSize[fm.clus.dats.features$ClusterSize=="USB"]=2
+fm.clus.dats.features$ClusterSize = as.numeric(fm.clus.dats.features$ClusterSize)
+fm.clus.dats.features$LibrarySize <- as.numeric(substr(fm.clus.dats.features[,3],3,4))
+fm.clus.dats.features$LibraryScale <- as.numeric(substr(fm.clus.dats.features[,4],3,4))
+fm.clus.dats.features$Dropout_level <- as.numeric(substr(fm.clus.dats.features[,5],3,4))
+```
+
+```{r}
+fm.dist.mat.natozero <- fm.dist.diff.mat
+fm.dist.mat.natozero[is.na(fm.dist.mat.natozero)]=0
+fm.dist.mat.cor <- matrix(0,nrow=225, ncol=5)
+for(i in c(1:5)){
+  fm.dist.mat.cor[,i] = apply(fm.dist.mat.natozero,2,function(x) cor(x, fm.dist.dats.features[,i+5], method="spearman"))
+}
+rownames(fm.dist.mat.cor) <- colnames(fm.dist.diff.mat)
+colnames(fm.dist.mat.cor) <- c("ClusterDistance","ClusterSize","LibrarySize","LibraryScale","Dropout")
+```
+
+```{r fig.width=5,fig.height=10}
+Heatmap(fm.dist.mat.cor[grep("HVG",rownames(fm.dist.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+Heatmap(fm.dist.mat.cor[grep("HEG",rownames(fm.dist.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+Heatmap(fm.dist.mat.cor[grep("HDG",rownames(fm.dist.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+```
+
+```{r}
+fm.clus.mat.natozero <- fm.clus.diff.mat
+fm.clus.mat.natozero[is.na(fm.clus.mat.natozero)]=0
+fm.clus.mat.cor <- matrix(0,nrow=225, ncol=5)
+for(i in c(1:5)){
+  fm.clus.mat.cor[,i] = apply(fm.clus.mat.natozero,2,function(x) cor(x, fm.clus.dats.features[,i+5], method="spearman"))
+}
+rownames(fm.clus.mat.cor) <- colnames(fm.clus.diff.mat)
+colnames(fm.clus.mat.cor) <- c("ClusterDistance","ClusterSize","LibrarySize","LibraryScale","Dropout")
+```
+
+
+```{r fig.width=5,fig.height=10}
+Heatmap(fm.clus.mat.cor[grep("HVG",rownames(fm.clus.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+Heatmap(fm.clus.mat.cor[grep("HEG",rownames(fm.clus.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+Heatmap(fm.clus.mat.cor[grep("HDG",rownames(fm.clus.mat.cor)),],cluster_rows = FALSE,cluster_columns = FALSE)
+```
+
+
+
+
+
+## time and memory cost plot
+```{r}
+mem_eda <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/mem.EDA.rds")
+mem_udb <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/mem.UDB.rds")
+
+time_eda <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/time.EDA.rds")
+time_udb <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/evaluation/time.UDB.rds")
+```
+
+```{r}
+mem <- cbind(mem_eda, mem_udb)
+time <- cbind(time_eda, time_udb)
+```
+
+```{r}
+methods <- unlist(lapply(rownames(mem), function(x) strsplit(x,"_")[[1]][2]))
+ave.mem <- matrix(0,ncol=15,nrow=1024*15)
+colnames(ave.mem) <- unique(meth.algo)
+for(i in 1:15){
+  ave.mem[,i] <- as.vector(mem[methods==unique(meth.algo)[i], ])
+}
+rownames(ave.mem) <- paste(rep(colnames(mem),each=15),rep(rep(c(4,2,3,5,6),each=3),1024),rep(c("HVG","HEG","HDG"),1024*5),sep = "_")
+
+ave.time <- matrix(0,ncol=15,nrow=1024*15)
+colnames(ave.time) <- unique(meth.algo)
+for(i in 1:15){
+  ave.time[,i] <- as.vector(time[methods==unique(meth.algo)[i], ])
+}
+#Heatmap(time, cluster_rows = FALSE, cluster_columns = FALSE)
+```
+
+```{r fig.width=6, fig.height=4}
+ave.mem.df <- melt(ave.mem)
+colnames(ave.mem.df) <- c("var","Method", "Memory")
+ave.mem.df$dist <- unlist(lapply(as.character(ave.mem.df$var), function(x) strsplit(x,"_")[[1]][1]))
+ave.mem.df$size <- unlist(lapply(as.character(ave.mem.df$var), function(x) strsplit(x,"_")[[1]][2]))
+ave.mem.df$ls <- unlist(lapply(as.character(ave.mem.df$var), function(x) strsplit(x,"_")[[1]][3]))
+ave.mem.df$lc <- unlist(lapply(as.character(ave.mem.df$var), function(x) strsplit(x,"_")[[1]][4]))
+ave.mem.df$do <- unlist(lapply(as.character(ave.mem.df$var), function(x) strsplit(x,"_")[[1]][5]))
+ave.mem.df$k <- unlist(lapply(as.character(ave.mem.df$var), function(x) strsplit(x,"_")[[1]][6]))
+ave.mem.df$gs <- unlist(lapply(as.character(ave.mem.df$var), function(x) strsplit(x,"_")[[1]][7]))
+```
+
+```{r fig.width=6, fig.height=4}
+meth.ave.mem <- apply(ave.mem, 2, mean)
+ave.mem.df$Method <- factor(ave.mem.df$Method, levels = names(meth.ave.mem)[order(meth.ave.mem)])
+colfunc <- colorRampPalette(c("#236fce","#9bc0ee"))
+ggplot(data=ave.mem.df, aes(Method, Memory, fill=Method)) +
+  geom_violin() + 
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1)) +
+  ylim(400,1500) +
+  scale_fill_manual(values=colfunc(15))# +
+  #geom_jitter(aes(colour = k))
+```
+
+Overlay
+```{r fig.width=6, fig.height=10}
+ave.mem.df2 <- ave.mem.df[ave.mem.df$k==4,]
+ave.mem.df2$k2 <- ave.mem.df$Memory[ave.mem.df$k==2]
+ave.mem.df2$k3 <- ave.mem.df$Memory[ave.mem.df$k==3]
+ave.mem.df2$k5 <- ave.mem.df$Memory[ave.mem.df$k==5]
+ave.mem.df2$k6 <- ave.mem.df$Memory[ave.mem.df$k==6]
+ave.mem.df$Method <- factor(ave.mem.df$Method, levels = names(meth.ave.mem)[order(meth.ave.mem)])
+colfunc <- colorRampPalette(c("#236fce","#9bc0ee"))
+```
+
+```{r fig.width=12, fig.height=8}
+ggplot(data=ave.mem.df2, aes(Method, Memory, width=1.5)) +
+  geom_violin(aes(colour = "1")) + 
+  geom_violin(aes(y = k2, colour = "2"),  alpha = .5) +
+  geom_violin(aes(y = k3, colour = "3"),  alpha = .5) +
+  #geom_violin(aes(y = k5, colour = "4"),  alpha = .5) +
+  #geom_violin(aes(y = k6, colour = "5"),  alpha = .5) +
+   ylim(400,1500) +
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1))
+```
+
+```{r}
+ave.mem.df$disttype <- unlist(lapply(ave.mem.df$dist,function(x) substr(x,1,3)))
+ave.mem.df$distl <- as.numeric(unlist(lapply(ave.mem.df$dist,function(x) substr(x,4,4))))
+ave.mem.df$libsize <- as.numeric(unlist(lapply(ave.mem.df$ls,function(x) substr(x,3,4))))
+ave.mem.df$libscale <- as.numeric(unlist(lapply(ave.mem.df$lc,function(x) substr(x,3,4))))
+ave.mem.df$dropout <- as.numeric(unlist(lapply(ave.mem.df$do,function(x) substr(x,3,4))))
+```
+
+```{r}
+add.mem.model <- lm(Memory ~ Method + size + k + gs + disttype + distl + libsize + libscale + dropout, data = ave.mem.df)
+```
+
+```{r}
+mem.coef <- summary(add.mem.model)$coefficients[,1]
+names(mem.coef)[1] = "MethodSeurat"
+mem.mean = mem.coef[1:15]
+#replace the first one with seurat and set it to 0
+names(mem.mean)[1] = "MethodSeurat"
+names(mem.mean) = unlist(lapply(names(mem.mean),function(x) str_replace(x,"Method","")[[1]][1]))
+mem.mean[1]=0
+## Level up, add intercept
+mem.mean <- mem.mean + mem.coef[1]
+##use k=4
+mem.mean <- mem.mean + mem.coef["k4"]
+##use hvg
+mem.mean <- mem.mean + mem.coef["gsHVG"]
+meth.ave.mem <- apply(ave.mem, 2, mean)
+mem.mean.ord <- mem.mean[order(meth.ave.mem)]
+```
+
+```{r fig.width=8, fig.height=6}
+ave.mem.df$Method <- factor(ave.mem.df$Method, levels = names(meth.ave.mem)[order(meth.ave.mem)])
+colfunc <- colorRampPalette(c("#236fce","#9bc0ee"))
+
+mem.mean.df <- data.frame(Memory = mem.mean.ord, Method=names(mem.mean.ord))
+mem.mean.df$Method <- factor(mem.mean.df$Method, levels = levels(ave.mem.df$Method))
+mem.mean.df$Memoryk4 <- mem.mean.df$Memory - mem.coef["k4"]
+mem.mean.df$Memorydo <- mem.mean.df$Memoryk4 - mem.coef["gsHVG"]
+ggplot() +
+  geom_violin(data=ave.mem.df, aes(Method, Memory, fill=Method),  color="grey50") + 
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 14, angle = 45, hjust = 1, colour = "black"), legend.position = "none",axis.text.y = element_text(size = 14,colour = "black"),axis.title=element_text(size=16,face="bold")) +
+  ylim(400,1500) +
+  scale_fill_manual(values=colfunc(15), guide=FALSE) +
+  geom_line(data=mem.mean.df, aes(Method, Memory, linetype="Base"), size=1, colour="#e3625a", group=1) + geom_point(data=mem.mean.df, aes(Method, Memory), size=2, colour="#e3625a", group=1)  +
+  geom_line(data=mem.mean.df, aes(Method, Memoryk4,linetype="Base+k"), size=1, colour="#e77770", group=1) + 
+  geom_point(data=mem.mean.df, aes(Method, Memoryk4), size=2, colour="#e77770", group=1) +
+   geom_line(data=mem.mean.df, aes(Method, Memorydo,linetype="Base+k+GeneSelection"), size=1, colour="#eea09b", group=1) + 
+  geom_point(data=mem.mean.df, aes(Method, Memorydo), size=2, colour="#eea09b", group=1) +
+  scale_linetype_manual(name="", values = c("Base+k+GeneSelection"="dotted", "Base+k"="dashed", "Base"="solid"))
+```
+
+
+
+```{r fig.width=8, fig.height=6}
+ave.time.df <- melt(ave.time)
+meth.ave.time <- apply(ave.time, 2, mean)
+colnames(ave.time.df) <- c("var","Method", "Time")
+ave.time.df$Method <- factor(ave.time.df$Method, levels = names(meth.ave.time)[order(meth.ave.time)])
+colfunc <- colorRampPalette(c("#236fce","#9bc0ee"))
+ggplot(data=ave.time.df, aes(Method, Time, fill=Method)) +
+  geom_violin() + 
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 14, angle = 45, hjust = 1, colour = "black"), legend.position = "none",axis.text.y = element_text(size = 14,colour = "black"),axis.title=element_text(size=16,face="bold"))+
+  ylim(0,8) +
+  scale_fill_manual(values=colfunc(15))
+  
+```
+
+```{r}
+a <- readRDS("~/storage/Github/scRNAseqBenchmark_Clustering/results/EDA1_ESA_LS1_LC1_DO1.res.rds")
+```
+
